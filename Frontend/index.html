@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8">
+    <title>Ricochet Robots – Frontend Prototyp</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <header>
+      <h1>Ricochet Robots</h1>
+      <nav>
+        <a href="#lobby">Lobby</a>
+        <a href="#game">Spiel</a>
+      </nav>
+    </header>
+
+    <main>
+      <section id="lobby-view" aria-label="Lobby">
+        <h2>Lobby und Konfiguration</h2>
+        <form id="config-form">
+          <label>
+            Brett:
+            <select name="board">
+              <option value="standard-16">Standard 16×16</option>
+            </select>
+          </label>
+          <label>
+            Timer (Sekunden):
+            <input name="timer" type="number" min="10" max="300" value="60">
+          </label>
+          <label>
+            Spielername:
+            <input name="playerName" type="text" placeholder="Dein Name" required>
+          </label>
+          <button type="submit">Spiel starten</button>
+        </form>
+        <p id="lobby-msg"></p>
+      </section>
+
+      <section id="game-view" aria-label="Spiel" hidden>
+        <h2>Aktuelle Runde</h2>
+        <div id="status">
+          <span id="board-name">Standard 16×16</span> ·
+          <span>Ziel: <span id="target-label">Rot</span></span> ·
+          <span>Restzeit: <span id="timer-label">–</span></span>
+        </div>
+        <div id="board" aria-label="Spielfeld"></div>
+        <p>Bewege den Roboter mit den Pfeiltasten. Er rutscht bis zum Hindernis.</p>
+      </section>
+    </main>
+
+    <script src="app.js" defer></script>
+  </body>
+</html>
