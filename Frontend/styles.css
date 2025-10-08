@@ -1,20 +1,91 @@
-:root { --cells: 16; --cell: 32px; }
-body { font-family: system-ui, sans-serif; margin: 16px; }
-header h1 { margin: 0 0 8px; }
+/* Globale Variablen für einfache Anpassungen */
+:root {
+  --cells: 16;
+  --cell-size: 32px; /* Passe dies an, um das Brett größer/kleiner zu machen */
+  --wall-thickness: 4px;
+  --wall-color: #333;
+}
+
+body {
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+  margin: 16px;
+  background-color: #f0f0f0;
+}
+
+header, main {
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+/* Das Spielfeld als Grid-Container */
 #board {
   display: grid;
-  grid-template-columns: repeat(var(--cells), var(--cell));
-  grid-template-rows: repeat(var(--cells), var(--cell));
-  gap: 1px;
-  background: #999;
+  grid-template-columns: repeat(var(--cells), var(--cell-size));
+  grid-template-rows: repeat(var(--cells), var(--cell-size));
+  /* Wir entfernen den `gap`, da die Ränder jetzt die Linien bilden */
+  background: #ccc;
+  border: var(--wall-thickness) solid var(--wall-color); /* Ein äußerer Rahmen für das Brett */
 }
+
+/* Jede einzelne Zelle im Grid */
 .cell {
-  width: var(--cell); height: var(--cell);
-  background: #eee; position: relative;
+  width: var(--cell-size);
+  height: var(--cell-size);
+  background: #fdfdfd;
+  position: relative; /* Wichtig für die Positionierung des Roboters */
+  
+  /* SEHR WICHTIG: Verhindert, dass die Ränder die Zelle vergrößern und das Layout kaputt machen */
+  box-sizing: border-box;
+  border: 1px solid #ddd /* damit leere zellen linien haben */
 }
+
+/* --- NEU: Regeln zum Zeichnen der Wände --- */
+/* Wir verwenden die Ränder (border) der Zellen, um die Wände darzustellen */
+.cell.wall-north {
+  border-top: var(--wall-thickness) solid var(--wall-color);
+}
+.cell.wall-east {
+  border-right: var(--wall-thickness) solid var(--wall-color);
+}
+.cell.wall-south {
+  border-bottom: var(--wall-thickness) solid var(--wall-color);
+}
+.cell.wall-west {
+  border-left: var(--wall-thickness) solid var(--wall-color);
+}
+/* --- Ende der neuen Regeln --- */
+
+
+/* Die Roboter-Darstellung (unverändert) */
 .cell.robot::after {
-  content: ""; position: absolute; inset: 6px;
-  background: #d22; border-radius: 50%; box-shadow: 0 0 0 2px #700 inset;
+  content: "";
+  position: absolute;
+  /* `inset` ist eine Kurzform für top, right, bottom, left */
+  inset: 6px; 
+  background: #d44; /* Etwas helleres Rot */
+  border-radius: 50%;
+  box-shadow: 0 0 0 2px #800 inset; /* Dunklerer innerer Schatten */
 }
-#status { margin: 8px 0; }
-section[hidden] { display: none; }
+
+/* Die restlichen UI-Elemente (unverändert) */
+#status { 
+  margin: 12px 0;
+  font-size: 1.1em;
+  background-color: #fff;
+  padding: 8px;
+  border-radius: 4px;
+}
+section[hidden] { 
+  display: none; 
+}
+
+/* Styling für das Konfigurations-Formular */
+#board-config-form fieldset {
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  margin-bottom: 10px;
+}
+#board-config-form legend {
+  font-weight: bold;
+  padding: 0 5px;
+}
