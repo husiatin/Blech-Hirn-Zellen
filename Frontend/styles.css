@@ -36,7 +36,7 @@ header, main {
   
   /* SEHR WICHTIG: Verhindert, dass die Ränder die Zelle vergrößern und das Layout kaputt machen */
   box-sizing: border-box;
-  border: 1px solid #ddd /* damit leere zellen linien haben */
+  border: 1px solid #ddd; /* damit leere zellen linien haben */
 }
 
 /* --- NEU: Regeln zum Zeichnen der Wände --- */
@@ -57,14 +57,34 @@ header, main {
 
 
 /* Die Roboter-Darstellung (unverändert) */
-.cell.robot::after {
+/* --- NEU: Regeln für jeden einzelnen Roboter --- */
+.cell.robot-red::after {
+  background-color: #d44;
+}
+.cell.robot-blue::after {
+  background-color: #44d;
+}
+.cell.robot-green::after {
+  background-color: #4d4;
+}
+.cell.robot-yellow::after {
+  background-color: #dd4;
+}
+
+/* Basis-Styling für alle Roboter (ersetzt die alte .robot-Regel) */
+[class*="robot-"]::after {
   content: "";
   position: absolute;
-  /* `inset` ist eine Kurzform für top, right, bottom, left */
-  inset: 6px; 
-  background: #d44; /* Etwas helleres Rot */
+  inset: 5px;
   border-radius: 50%;
-  box-shadow: 0 0 0 2px #800 inset; /* Dunklerer innerer Schatten */
+  box-shadow: 0 0 0 2px rgba(0,0,0,0.5) inset;
+  transition: transform 0.1s ease-out; /* Kleine Animation */
+}
+
+/* NEU: Visuelles Feedback für den ausgewählten Roboter */
+.cell.selected::after {
+  transform: scale(1.2);
+  outline: 3px solid gold;
 }
 
 /* Die restlichen UI-Elemente (unverändert) */
