@@ -1,11 +1,11 @@
 services:
   fastapi:
-    build: ./fastapi
+    build: ./backend/fastapi
     networks:
       - app-network
 
   nginx:
-    build: ./nginx
+    build: ./Frontend/nginx
     ports:
       - "80:80"
     depends_on:
