@@ -18,30 +18,54 @@
     <main>
       <section id="lobby-view" aria-label="Lobby">
         <h2>Lobby und Konfiguration</h2>
-        <form id="config-form">
-          <label>
-            Brett:
-            <select name="board">
-              <option value="standard-16">Standard 16×16</option>
-            </select>
-          </label>
+
+        <form id="board-config-form"> <!-- umschließt Eingabefelder die zusammengehören und gemeinsam gesendet werden sollen -->
+          <h3>1. Brett zusammenstellen</h3>
+          <p>Wähle für jeden der vier Blöcke die Seite A oder B.</p>
+          
+          <fieldset>
+            <legend>Block 1 (oben links)</legend>
+            <label><input type="radio" name="block1_side" value="A" checked> Seite A</label>
+            <label><input type="radio" name="block1_side" value="B"> Seite B</label>
+          </fieldset>
+          <fieldset>
+            <legend>Block 2 (oben rechts)</legend>
+            <label><input type="radio" name="block2_side" value="A" checked> Seite A</label>
+            <label><input type="radio" name="block2_side" value="B"> Seite B</label>
+          </fieldset>
+          <fieldset>
+            <legend>Block 3 (unten links)</legend>
+            <label><input type="radio" name="block3_side" value="A" checked> Seite A</label>
+            <label><input type="radio" name="block3_side" value="B"> Seite B</label>
+          </fieldset>
+          <fieldset>
+            <legend>Block 4 (unten rechts)</legend>
+            <label><input type="radio" name="block4_side" value="A" checked> Seite A</label>
+            <label><input type="radio" name="block4_side" value="B"> Seite B</label>
+          </fieldset>
+
+          <h3>2. Spiel-Einstellungen</h3>
           <label>
             Timer (Sekunden):
             <input name="timer" type="number" min="10" max="300" value="60">
           </label>
           <label>
-            Spielername:
-            <input name="playerName" type="text" placeholder="Dein Name" required>
+            Dein Name:
+            <input name="playerName" type="text" placeholder="Spielername" required>
           </label>
+
           <button type="submit">Spiel starten</button>
         </form>
+        <!-- Ende der Änderungen -->
+
         <p id="lobby-msg"></p>
       </section>
 
+      <!-- Die Spiel-Ansicht bleibt unverändert -->
       <section id="game-view" aria-label="Spiel" hidden>
         <h2>Aktuelle Runde</h2>
         <div id="status">
-          <span id="board-name">Standard 16×16</span> ·
+          <span id="board-name">Individuelles Brett</span> ·
           <span>Ziel: <span id="target-label">Rot</span></span> ·
           <span>Restzeit: <span id="timer-label">–</span></span>
         </div>
@@ -50,6 +74,8 @@
       </section>
     </main>
 
-    <script src="app.js" defer></script>
+    <!-- Die Skript-Einbindung -->
+    <script src="js/quadrantData.js"></script>
+    <script src="js/app.js" defer></script>
   </body>
 </html>
