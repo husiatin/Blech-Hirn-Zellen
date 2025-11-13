@@ -6,7 +6,8 @@ they hit another robot or a wall.
 
 ## Installation
 1. Clone the repo into a local directory -> e.g. `git clone https://github.com/husiatin/Blech-Hirn-Zellen.git`
-2. If Docker / Docker compose is install navigate to the root directory and execute the docker-compose.yml file using `docker compose -f 'docker-compose.yml' up -d --build `
+2. If Docker / Docker compose is installed navigate to the root directory and execute the docker-compose.yml file using `docker compose -f 'docker-compose.yml' up -d --build `
+![Docker compose](./documentation_images/docker_compose.png)
 
 If only one container should be started use:
 `docker compose -f 'docker-compose.yml' up -d --build 'fastapi'` for the FastApI / backend or
@@ -15,6 +16,7 @@ If only one container should be started use:
 Alternativly use Visual Studio Code:
 1. Open the docker-compose.yml file
 2. Click "Run All Services" or "Run Service" if only a specific container should be created
+![Run All Services](./documentation_images/run_all_services.png)
 
 ## How to play
 TODO
@@ -42,6 +44,18 @@ Blech-Hirn-Zellen/
                 app.js
                 index.html
                 styles.css
+
+## Looking at the containers logs
+When the application doesn't work like it should it is a good idea to look at the logs of the containers first.
+To access the containers logs the following commmands can be entered into the command line.
+Exchange "name-of-container" with the actual name your container.
+
+Nginx logs: `docker logs name-of-container-nginx-1`
+![Nginx container logs](./documentation_images/nginx_container_logs.png)
+FastAPI logs: `docker logs name-of-container-fastapi-1`
+![FastAPI container logs](./documentation_images/fastapi_container_logs.png)
+
+To get a continued stream of the logs add `--follow` to the command e.g.: `docker logs --follow name-of-container-nginx-1`
 
 ## Frontend
 ### nginx
