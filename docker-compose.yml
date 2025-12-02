@@ -1,15 +1,35 @@
+
+
 services:
   fastapi:
-    build: ./backend/fastapi
+    # 🚨 KORREKTUR des Build-Pfads:
+    # Das Dockerfile liegt im Stammverzeichnis (.).
+    # Wir geben den Build-Kontext explizit als Stammverzeichnis an.
+    build: 
+      context: .
+      dockerfile: Dockerfile
+      
+    # Wir exponieren Port 8000 für die interne Kommunikation
+    # (wie im Dockerfile definiert)
+    expose:
+      - "8000"
     networks:
       - app-network
 
   nginx:
-    build: ./Frontend/nginx
+    # 🚨 KORREKTUR des Build-Pfads:
+    # Der NGINX-Build-Kontext (mit Dockerfile und Konfiguration) liegt nun
+    # unterhalb eines separaten 'frontend'-Ordners.
+    build: ./frontend/nginx
+    
+    # Der Port, den die Benutzer im Browser aufrufen
     ports:
       - "80:80"
+      
+    # NGINX muss warten, bis FastAPI läuft
     depends_on:
       - fastapi
+      
     networks:
       - app-network
 
