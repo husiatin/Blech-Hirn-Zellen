@@ -22,7 +22,30 @@ const boardEl = document.getElementById('board');
 const timerLabel = document.getElementById('timer-label');
 const targetLabel = document.getElementById('target-label');
 const boardName = document.getElementById('board-name');
+const createGame = document.getElementById('create-game');
 let roundEndAt = null;
+
+function Player(playerId, playerName) {
+  this.playerId = playerId;
+  this.playerName = playerName;
+}
+
+let playerInfo;
+
+async function init(){
+  // TODO check if there is already a player id in a session var if not then create player id
+  await fetch("http://localhost/api/players", {
+    method: "POST"
+  })
+  .then((response) => response.json())
+  .then((data) => {
+    playerInfo = new Player(data.player_id, data.player_name);
+  })
+
+  console.log(`Your Player Id is ${playerInfo.playerId} and your Player Name is ${playerInfo.playerName}!`)
+}
+
+window.onload = init();
 
 function show(view) {
   lobbyView.hidden = (view !== 'lobby');
@@ -203,5 +226,15 @@ setInterval(() => {
   const remaining = Math.max(0, roundEndAt - Date.now());
   timerLabel.textContent = `${Math.ceil(remaining / 1000)}s`;
 }, 200);
+
+createGame.addEventListener('click', async (e) => {
+  await fetch("http://localhost/api/games", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({player_info: playerInfo})
+  })
+})
 
 show(location.hash.replace('#', '') || 'lobby');

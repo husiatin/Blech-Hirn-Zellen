@@ -22,28 +22,39 @@ Alternativly use Visual Studio Code:
 TODO
 
 ## Application structure
+```
 Blech-Hirn-Zellen/
-│   docker-compose.yml          # File for creating the docker containers
-│   README.md                   # Project overview
+│   docker-compose.yml
+│   README.md
 │
-├───backend                     # API
+├───backend
 │   └───fastapi
 │       │   Dockerfile
 │       │   requirements.txt
 │       │
-│       └───app                 # API code directory
+│       └───app
 │               main.py
 │               __init__.py
 │
-└───Frontend                    # Web server and web frontend
-    └───nginx                   # Web server
+├───documentation_images
+│       docker_compose.png
+│       fastapi_container_logs.png
+│       nginx_container_logs.png
+│       run_all_services.png
+│
+└───Frontend
+    └───nginx
         │   Dockerfile
         │   nginx.conf
         │
-        └───static              # Web frontend files
-                app.js
-                index.html
-                styles.css
+        └───static
+            │   index.html
+            │   styles.css
+            │
+            └───js
+                    app.js
+                    quadrantData.js
+```
 
 ## Looking at the containers logs
 When the application doesn't work like it should it is a good idea to look at the logs of the containers first.
