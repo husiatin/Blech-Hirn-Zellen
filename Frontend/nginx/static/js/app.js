@@ -25,9 +25,11 @@ const boardName = document.getElementById('board-name');
 const createGame = document.getElementById('create-game');
 let roundEndAt = null;
 
-function Player(playerId, playerName) {
-  this.playerId = playerId;
-  this.playerName = playerName;
+class Player {
+  constructor(player_id, player_name) {
+    this.player_id = player_id;
+    this.player_name = player_name;
+  }
 }
 
 let playerInfo;
@@ -236,5 +238,7 @@ createGame.addEventListener('click', async (e) => {
     body: JSON.stringify({player_info: playerInfo})
   })
 })
+// TODO do error handling if the request fails
+
 
 show(location.hash.replace('#', '') || 'lobby');

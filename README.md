@@ -6,7 +6,7 @@ they hit another robot or a wall.
 
 ## Installation
 1. Clone the repo into a local directory -> e.g. `git clone https://github.com/husiatin/Blech-Hirn-Zellen.git`
-2. If Docker / Docker compose is installed navigate to the root directory and execute the docker-compose.yml file using `docker compose -f 'docker-compose.yml' up -d --build `
+2. If Docker / Docker compose is installed navigate to the root directory and execute the docker-compose.yml file using `docker compose -f 'docker-compose.yml' up -d --build`
 ![Docker compose](./documentation_images/docker_compose.png)
 
 If only one container should be started use:
@@ -63,6 +63,7 @@ Exchange "name-of-container" with the actual name your container.
 
 Nginx logs: `docker logs name-of-container-nginx-1`
 ![Nginx container logs](./documentation_images/nginx_container_logs.png)
+
 FastAPI logs: `docker logs name-of-container-fastapi-1`
 ![FastAPI container logs](./documentation_images/fastapi_container_logs.png)
 
