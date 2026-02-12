@@ -44,7 +44,7 @@ async function init(){
     playerInfo = new Player(data.player_id, data.player_name);
   })
 
-  console.log(`Your Player Id is ${playerInfo.playerId} and your Player Name is ${playerInfo.playerName}!`)
+  console.log(`Your Player Id is ${playerInfo.player_id} and your Player Name is ${playerInfo.player_name}!`);
 }
 
 window.onload = init();

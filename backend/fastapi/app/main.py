@@ -6,30 +6,134 @@ from typing import List
 import json
 from pydantic import BaseModel
 from string import hexdigits, digits
+from threading import Timer
+from enum import Enum
 
 app = FastAPI(redoc_url=None)
 
+class Move():
+    startX: int
+    startY: int
+    newX: int
+    newY: int
+
 class Player(BaseModel):
     player_id: str
-    player_name: str
+    player_name: str    
+    bid: int
+    moves: List[Move] = []
+
+# TODO create board representation
+# class Board(BaseModel):
+
+
+
+def award_game_chip(player_id: str):
+    # TODO 
+    return None
+
+class Colour(Enum):
+    RED = 0
+    GREEN = 1
+    BLUE = 2
+    YELLOW = 3
+
+class Symbol(Enum):
+    CIRCLE = 0
+    STAR = 1
+    COG = 2
+    PENTAGON = 3
+
+# TODO define game chips -> colour and symbol
+class GameChip(BaseModel):
+    colour: Colour
+    symbol: Symbol
+
+# TODO define set of game chips -> 16 in total
+game_chips = [GameChip(colour=0, symbol=0),
+              GameChip(colour=0, symbol=1),
+              GameChip(colour=0, symbol=2),
+              GameChip(colour=0, symbol=3),
+              GameChip(colour=1, symbol=0),
+              GameChip(colour=1, symbol=1),
+              GameChip(colour=1, symbol=2),
+              GameChip(colour=1, symbol=3),
+              GameChip(colour=2, symbol=0),
+              GameChip(colour=2, symbol=1),
+              GameChip(colour=2, symbol=2),
+              GameChip(colour=2, symbol=3),
+              GameChip(colour=3, symbol=0),
+              GameChip(colour=3, symbol=1),
+              GameChip(colour=3, symbol=2),
+              GameChip(colour=3, symbol=3)]
+
+def end_round():
+        # TODO round end
+        # allow the player with the lowest number of moves to demonstrate their solution
+        # if that doesn't work pick the next until a solution is found or no solution is found
+        # if a solution is found allocate the game chip to the player
+        # else the game chip is not awarded and stays a playable game chip / remains in the set of game chips
+        # if there are remaining game chips the game continues 
+        # else the game is ended and the players can start a new round
+        return None
+
+class Bid(BaseModel):
+    number_of_moves: int
+    player_id: str
 
 class Game:
-    def __init__(self, game_id: str, player_count: int, game_master_id: str, player_list: List[Player]):
+    def __init__(self, game_id: str, 
+                 player_count: int, 
+                 game_master_id: str, 
+                 player_list: List[Player],
+                 bids: List[Bid],
+                 is_timer_running: bool = False, 
+                 timer_duration: float = 60.0):
         self.game_id = game_id
         self.player_count = player_count
         self.game_master_id = game_master_id
         self.player_list = player_list
+        self.bids = bids
+        self.is_timer_running = is_timer_running
+        self.timer_duration = timer_duration
+
+    def is_player(self, player_id: str):
+        for player in self.player_list:
+            if player.player_id == player_id:
+                return player
+        return None
+    
+    def add_bid(self):
+        self.bids.sort()
+
+    def start_timer(self):
+        timer = Timer(self.timer_duration, end_round())
+        timer.start()
 
 games: List[Game] = []
+
+def game_exists(game_id):
+    for game in games:
+        if game.game_id == game_id:
+            return game
+    return None
+        
 
 # TODO replace with key value pair or hash map OR REMOVE?
 players: List[Player] = []
 
-possible_layer_names: List[str] = ["greenAndMean", "red_robot_lover", "blue_means_better", "yellowIsTheBest", "all_robots_mover", "lastMinuteGuesser", "moveMaker", "better_late_than_never"]
+possible_layer_names: List[str] = ["greenAndMean", 
+                                   "red_robot_lover", 
+                                   "blue_means_better", 
+                                   "yellowIsTheBest", 
+                                   "all_robots_mover", 
+                                   "lastMinuteGuesser", 
+                                   "moveMaker", 
+                                   "better_late_than_never"]
 
 @app.get("/")
 async def get():
-    return HTMLResponse(html)
+    return {"Hello": "FASTAPI"}
 
 @app.get("/app")
 def read_app():
@@ -160,45 +264,26 @@ async def leave_game(game_id: str, player_id: str):
     
     return {"Wrong": "game_id"}
 
+@app.post("games/bid")
+async def make_bid(game_id: str, player_id: str, bid: int):
+    game = game_exists(game_id)
+    if game is None:
+        return {"Wrong": "game_id"}
+    else:
+        player = game.is_player(player_id)
+        if player is None:
+            return {"Wrong": "Player"}
+        else:
+            player.bid = bid
+            game.start_timer()
+            return {"Bid": "accepted"}
+
 
 
 # @app.patch("games/{game_id}/{player_id}/name")
 # async def change_player_name(game_id: int, player_id: str):
 #     # TODO change name of player while in lobby
 
-html = """
-<!DOCTYPE html>
-<html>
-    <head>
-        <title>Chat</title>
-    </head>
-    <body>
-        <h1>WebSocket Chat</h1>
-        <form action="" onsubmit="sendMessage(event)">
-            <input type="text" id="messageText" autocomplete="off"/>
-            <button>Send</button>
-        </form>
-        <ul id='messages'>
-        </ul>
-        <script>
-            var ws = new WebSocket("ws://localhost/ws");
-            ws.onmessage = function(event) {
-                var messages = document.getElementById('messages')
-                var message = document.createElement('li')
-                var content = document.createTextNode(event.data)
-                message.appendChild(content)
-                messages.appendChild(message)
-            };
-            function sendMessage(event) {
-                var input = document.getElementById("messageText")
-                ws.send(input.value)
-                input.value = ''
-                event.preventDefault()
-            }
-        </script>
-    </body>
-</html>
-"""
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()

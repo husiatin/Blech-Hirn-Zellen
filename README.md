@@ -87,3 +87,4 @@ The documentation of the api can be accessed by navigating to http://127.0.0.1/a
 ## Docker
 There are two Dockerfiles. One for creating the FastAPI container and the other for creating the nginx server.
 Additionally, there is a docker-compose.yml file that creates the two containers based on the two Dockerfiles and setups a network through which the containers communicate with each other.
+
