@@ -23,12 +23,28 @@ const timerLabel = document.getElementById('timer-label');
 const targetLabel = document.getElementById('target-label');
 const boardName = document.getElementById('board-name');
 const createGame = document.getElementById('create-game');
+const joinGame = document.getElementById('join-game');
 let roundEndAt = null;
 
+class GameInfo {
+  constructor (game_id, player_count, game_master_id, player_list, bids, is_timer_running, timer_duration) {
+    this.game_id = game_id;
+    this.player_count = player_count;
+    this.game_master_id = game_master_id;
+    this.player_list = player_list;
+    this.bids = bids;
+    this.is_timer_running = is_timer_running;
+    this.timer_duration = timer_duration;
+  }
+}
+
+let gameInfo;
+
 class Player {
-  constructor(player_id, player_name) {
+  constructor(player_id, player_name, moves) {
     this.player_id = player_id;
     this.player_name = player_name;
+    this.moves = moves;
   }
 }
 
@@ -41,7 +57,7 @@ async function init(){
   })
   .then((response) => response.json())
   .then((data) => {
-    playerInfo = new Player(data.player_id, data.player_name);
+    playerInfo = new Player(data.player_id, data.player_name, data.moves);
   })
 
   console.log(`Your Player Id is ${playerInfo.player_id} and your Player Name is ${playerInfo.player_name}!`);
@@ -230,15 +246,60 @@ setInterval(() => {
 }, 200);
 
 createGame.addEventListener('click', async (e) => {
-  await fetch("http://localhost/api/games", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({player_info: playerInfo})
-  })
+  try {
+    const response = await fetch("http://localhost/api/games", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(playerInfo)
+    });
+
+    if (!response.ok) {
+      const text = await response.text();
+      console.error('Create game failed', response.status, text);
+      return;
+    }
+
+    const data = await response.json();
+    gameInfo = new GameInfo(
+      data.game_id,
+      data.player_count,
+      data.game_master_id,
+      data.player_list,
+      data.bids,
+      data.is_timer_running,
+      data.timer_duration
+    );
+  } catch (err) {
+    console.error('Create game request failed', err);
+  }
 })
 // TODO do error handling if the request fails
+joinGame.addEventListener('click', async (e) => {
+  try {
+    const enteredGameId = document.querySelector('input[name="join-via-game-id"]').value.trim();
+    if (!enteredGameId) {
+      console.warn('No game id provided');
+      return;
+    }
+
+    const response = await fetch(`http://localhost/api/games/${enteredGameId}/players`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(playerInfo)
+    });
+
+    if (!response.ok) {
+      const text = await response.text();
+      console.error('Join game failed', response.status, text);
+      return;
+    } 
+    // TODO do something when the response is bad
+  } catch (error) {
+    console.error(error.message)
+  }
+})
 
 
 show(location.hash.replace('#', '') || 'lobby');

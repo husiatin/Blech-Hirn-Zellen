@@ -1,17 +1,18 @@
 from fastapi import FastAPI
-from fastapi import WebSocket
+from fastapi import WebSocket, HTTPException
+import logging
 from random import randint, choice
 from fastapi.responses import HTMLResponse
 from typing import List
 import json
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from string import hexdigits, digits
 from threading import Timer
 from enum import Enum
 
 app = FastAPI(redoc_url=None)
 
-class Move():
+class Move(BaseModel):
     startX: int
     startY: int
     newX: int
@@ -20,7 +21,7 @@ class Move():
 class Player(BaseModel):
     player_id: str
     player_name: str    
-    bid: int
+    # bid: int
     moves: List[Move] = []
 
 # TODO create board representation
@@ -79,36 +80,37 @@ def end_round():
 
 class Bid(BaseModel):
     number_of_moves: int
-    player_id: str
+    player_id: str 
+    # TODO? make player_id a separate type?
 
-class Game:
-    def __init__(self, game_id: str, 
-                 player_count: int, 
-                 game_master_id: str, 
-                 player_list: List[Player],
-                 bids: List[Bid],
-                 is_timer_running: bool = False, 
-                 timer_duration: float = 60.0):
-        self.game_id = game_id
-        self.player_count = player_count
-        self.game_master_id = game_master_id
-        self.player_list = player_list
-        self.bids = bids
-        self.is_timer_running = is_timer_running
-        self.timer_duration = timer_duration
+class Game(BaseModel):
+    game_id: str
+    player_count: int
+    game_master_id: str
+    player_list: List[Player]
+    bids: List[Bid] = Field(default_factory=list)
+    is_timer_running: bool = False
+    timer_duration: float = 60.0
 
     def is_player(self, player_id: str):
         for player in self.player_list:
             if player.player_id == player_id:
                 return player
         return None
-    
-    def add_bid(self):
-        self.bids.sort()
 
-    def start_timer(self):
-        timer = Timer(self.timer_duration, end_round())
-        timer.start()
+    def add_bid(self, bid: Bid) -> None:
+        self.bids.append(bid)
+        # keep bids ordered by declared number of moves (lowest first)
+        self.bids.sort(key=lambda b: getattr(b, 'number_of_moves', 0))
+        return None
+
+    def set_timer_duration(self, new_timer_duration: float) -> None:
+        self.timer_duration = new_timer_duration
+        return None
+
+    # def start_timer(self):
+    #     timer = Timer(self.timer_duration, end_round())
+    #     timer.start()
 
 games: List[Game] = []
 
@@ -122,7 +124,7 @@ def game_exists(game_id):
 # TODO replace with key value pair or hash map OR REMOVE?
 players: List[Player] = []
 
-possible_layer_names: List[str] = ["greenAndMean", 
+possible_player_names: List[str] = ["greenAndMean", 
                                    "red_robot_lover", 
                                    "blue_means_better", 
                                    "yellowIsTheBest", 
@@ -147,22 +149,33 @@ def random_game_id_with_N_digits(n):
 
 @app.post("/games")
 async def create_game(player_info: Player):
-    # TODO create a func that creates a new random game id that does not exist yet
-    game_id = str(random_game_id_with_N_digits(8))
-    # TODO player_count must be set to one as the game master is the first player
-    new_player_list: List[Player] = [player_info]
-    new_game = Game(game_id, 1, player_info.player_id, new_player_list)
-    games.append(new_game)
-    # return something for the frontend as proof of success
+    try:
+        # TODO create a func that creates a new random game id that does not exist yet
+        game_id = str(random_game_id_with_N_digits(8))
+        # TODO player_count must be set to one as the game master is the first player
+        new_player_list: List[Player] = [player_info]
+        new_game = Game(
+            game_id=game_id,
+            player_count=1,
+            game_master_id=player_info.player_id,
+            player_list=new_player_list,
+        )
+        games.append(new_game)
+        return new_game
+    except Exception as e:
+        logging.exception("Failed to create game")
+        # Return a generic 500 to clients to avoid leaking internals
+        raise HTTPException(status_code=500, detail="Internal Server Error")
 
 @app.get("/games")
 async def read_games():
     if not games:
         return {"NO": "Games"}
     else:
-        games_as_json: List[str] = []
+        games_as_json: List[dict] = []
         for game in games:
-            games_as_json.append(json.dumps(game.__dict__))
+            # Game is a Pydantic model; use .dict() for serializable representation
+            games_as_json.append(game.dict())
         return games_as_json
     
 def random_player_id_with_n_characters(n):
@@ -176,7 +189,7 @@ def random_player_id_with_n_characters(n):
 
 def random_player_name():
     digis: List[str] = list(digits)
-    player_name: str = choice(possible_layer_names)
+    player_name: str = choice(possible_player_names)
     i: int = 0
     while i < 2:
         i += 1
@@ -208,7 +221,7 @@ async def read_player_info(player_id):
                 return player
         return {"Wrong": "player_id"}
 
-@app.get("games/{game_id}")
+@app.get("/games/{game_id}")
 async def read_game_status(game_id: str):
     if not games:
         return {"NO": "Games"}
@@ -221,7 +234,7 @@ async def read_game_status(game_id: str):
 #      # TODO Retrieve status (number of players, game configuration, ) of specified game
 #      return #some var with game info
 
-@app.put("games/join")
+@app.post("/games/{game_id}/players")
 async def join_game(game_id: str, player_info: Player):
     # TODO check if game_ID and player_info are of valid format
     if not games:
@@ -242,7 +255,7 @@ async def join_game(game_id: str, player_info: Player):
 #     # TODO join specified game if it exists (adds the playerId and Name to the list of players)
 
 
-@app.put("games/leave")
+@app.put("/games/leave")
 async def leave_game(game_id: str, player_id: str):
     # TODO check if game_ID and player_id are of valid format
     # #     # TODO leave specified game (removes the player from the list of players)
@@ -264,23 +277,23 @@ async def leave_game(game_id: str, player_id: str):
     
     return {"Wrong": "game_id"}
 
-@app.post("games/bid")
-async def make_bid(game_id: str, player_id: str, bid: int):
+@app.post("/games/bid")
+async def make_bid(game_id: str, bid: Bid):
     game = game_exists(game_id)
     if game is None:
         return {"Wrong": "game_id"}
     else:
-        player = game.is_player(player_id)
+        player = game.is_player(bid.player_id)
         if player is None:
             return {"Wrong": "Player"}
         else:
-            player.bid = bid
-            game.start_timer()
+            game.bids.append(bid)
+            # game.start_timer()
             return {"Bid": "accepted"}
 
+# @app.put("games/{game_id}/settings")
 
-
-# @app.patch("games/{game_id}/{player_id}/name")
+# @app.put("games/{game_id}/{player_id}/name")
 # async def change_player_name(game_id: int, player_id: str):
 #     # TODO change name of player while in lobby
 
