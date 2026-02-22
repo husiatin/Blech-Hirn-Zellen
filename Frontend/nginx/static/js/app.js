@@ -27,11 +27,13 @@ const joinGame = document.getElementById('join-game');
 let roundEndAt = null;
 
 class GameInfo {
-  constructor (game_id, player_count, game_master_id, player_list, bids, is_timer_running, timer_duration) {
+  constructor (game_id, player_count, game_master_id, player_list, board, game_status, bids, is_timer_running, timer_duration) {
     this.game_id = game_id;
     this.player_count = player_count;
     this.game_master_id = game_master_id;
     this.player_list = player_list;
+    this.board = board;
+    this.game_status = game_status;
     this.bids = bids;
     this.is_timer_running = is_timer_running;
     this.timer_duration = timer_duration;
@@ -250,7 +252,10 @@ createGame.addEventListener('click', async (e) => {
     const response = await fetch("http://localhost/api/games", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(playerInfo)
+      body: JSON.stringify({
+        player_info: playerInfo,
+        board_configuration: {board_size: BOARD_SIZE, board_data: finalBoardData}
+      })
     });
 
     if (!response.ok) {
@@ -265,6 +270,8 @@ createGame.addEventListener('click', async (e) => {
       data.player_count,
       data.game_master_id,
       data.player_list,
+      data.board,
+      data.game_status,
       data.bids,
       data.is_timer_running,
       data.timer_duration
