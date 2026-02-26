@@ -31,6 +31,18 @@ class Game(BaseModel):
     def set_timer_duration(self, new_timer_duration: float) -> None:
         self.timer_duration = new_timer_duration
 
+    def on_timer_end(self):
+        # TODO make broadcast to players that timer has ended and process bids(tell the player with the least number to show his moves)
+        return None
+
+    async def start_timer(self, on_timer_end) -> None:
+        if self.is_timer_running:
+            return
+        self.is_timer_running = True
+        timer = Timer(self.timer_duration, on_timer_end)
+        timer.start()
+    # def set robots start postions
+
 
 # In-memory game and player state
 games: List[Game] = []

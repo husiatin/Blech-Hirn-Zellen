@@ -1,0 +1,17 @@
+// Centralized DOM element references
+export const lobbyView = document.getElementById('lobby-view');
+export const gameView = document.getElementById('game-view');
+export const boardEl = document.getElementById('board');
+export const timerLabel = document.getElementById('timer-label');
+export const targetLabel = document.getElementById('target-label');
+export const boardName = document.getElementById('board-name');
+export const createGame = document.getElementById('create-game');
+export const joinGame = document.getElementById('join-game');
+export const playerListContainer = document.getElementById('player-list');
+export const playerListUl = document.getElementById('player-list-ul');
+export const playerListGameId = document.getElementById('player-list-game-id');
+export const playerNameDisplay = document.getElementById('player-name-display');
+export const boardConfigForm = document.getElementById('board-config-form');
+export const lobby = document.getElementById('lobby-view');
+export const game = document.getElementById('game-view');
+export const makeBet = document.getElementById('make-bet');

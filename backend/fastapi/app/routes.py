@@ -5,7 +5,7 @@ import logging
 from .models import Player, Board, Bid, GameStatus
 from .utils import random_player_id_with_n_characters, random_player_name, random_game_id_with_N_digits
 from .game import games, players, Game, game_exists
-from .notifications import set_webhook_url_for_player
+from .notifications import manager
 
 router = APIRouter()
 
@@ -76,7 +76,9 @@ async def join_game(game_id: str, player_info: Player):
                     return {"Player": "Already in Game"}
             game.player_list.append(player_info)
             game.player_count += 1
-            return {"Player": "Joined Game"}
+
+            await manager.broadcast(game_id, {"type": "player_joined", "payload": {"player": player_info.dict()}})
+            return game
     return {"Wrong": "game_id"}
 
 
@@ -88,6 +90,7 @@ async def start_game(game_id: str, game_master_id: str):
     if game.game_master_id != game_master_id:
         return {"Wrong": "Not Game Master"}
     game.game_status = GameStatus.STARTED
+    await manager.broadcast(game_id, {"type": "game_started", "payload": game.dict()})
     return {"Game": "Started"}
 
 
@@ -101,12 +104,13 @@ async def leave_game(game_id: str, player_id: str):
                 if player.player_id == player_id:
                     game.player_list.remove(player)
                     game.player_count -= 1
+                    await manager.broadcast(game_id, {"type": "player_left", "payload": {"player_id": player_id}})
                     return {"Player": "Left Game"}
             return {"Player": "Not in Game"}
     return {"Wrong": "game_id"}
 
-
-@router.post("/games/bid")
+#TODO add moves and send notifications to registered webhooks for players
+@router.post("/games/{game_id}/bids")
 async def make_bid(game_id: str, bid: Bid):
     game = await game_exists(game_id)
     if game is None:
@@ -115,15 +119,6 @@ async def make_bid(game_id: str, bid: Bid):
     if player is None:
         return {"Wrong": "Player"}
     game.bids.append(bid)
+    await game.start_timer(game.on_timer_end)
+    await manager.broadcast(game_id, {"type": "bid_made", "payload": game.dict()})
     return {"Bid": "accepted"}
-
-
-@router.post("/games/{game_id}/webhook")
-async def set_webhook(game_id: str, player_id: str, webhook_url: str):
-    game = await game_exists(game_id)
-    if game is None:
-        return {"Wrong": "game_id"}
-    if not game.is_player(player_id):
-        return {"Wrong": "Player"}
-    await set_webhook_url_for_player(player_id, webhook_url)
-    return {"Webhook": "Set"}

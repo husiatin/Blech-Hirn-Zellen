@@ -59,13 +59,3 @@ class Player(BaseModel):
     player_name: str
     moves: List[Move] = Field(default_factory=list)
     won_chips: List[GameChip] = Field(default_factory=list)
-
-
-class NotificationData(BaseModel):
-    board: Board
-    timerDuration: float
-    player_list: List[Player]
-    bids: List[Bid]
-    gameStatus: GameStatus
-    currentChip: GameChip
-    robots_new_start_positions: List[Robot]

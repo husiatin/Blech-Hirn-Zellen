@@ -9,6 +9,7 @@
   <body>
     <header>
       <h1>Ricochet Robots</h1>
+      <h3 id="player-name-display"></h3>
       <nav>
         <a href="#lobby">Lobby</a>
         <a href="#game">Spiel</a>
@@ -19,7 +20,7 @@
       <section id="lobby-view" aria-label="Lobby">
         <h2>Lobby und Konfiguration</h2>
 
-        <form id="board-config-form"> <!-- umschließt Eingabefelder die zusammengehören und gemeinsam gesendet werden sollen -->
+        <form id="board-config-form"> 
           <h3>1. Brett zusammenstellen</h3>
           <p>Wähle für jeden der vier Blöcke die Seite A oder B.</p>
           
@@ -56,7 +57,15 @@
 
           <button type="submit">Spiel starten</button>
           <button id="create-game" type="button">Create game</button>
-
+          <label id="game-id-display"></label>
+          
+          <div id="player-list" hidden>
+            <h4>Mitspieler</h4>
+            <p>Spiel-Id: <span id="player-list-game-id"></span></p>
+            <ul id="player-list-ul"></ul>
+          </div>
+          
+          <h3>3. Spiel beitreten</h3>
           <label>
             Gebe hier die Spiel-Id des Spiels ein dem du beitreten möchtest:
             <input name="join-via-game-id" type="text" placeholder="Spiel-Id">
@@ -64,26 +73,41 @@
 
           <button id="join-game" type="button">Spiel beitreten</button>
         </form>
-        <!-- Ende der Änderungen -->
 
         <p id="lobby-msg"></p>
       </section>
 
-      <!-- Die Spiel-Ansicht bleibt unverändert -->
       <section id="game-view" aria-label="Spiel" hidden>
         <h2>Aktuelle Runde</h2>
+        <label>
+            Gebe hier die Zuganzahl an:
+            <input name="move-count" type="number" min="1" max="100" value="1">
+        </label>
+        <button id="make-bet" type="button">Zuganzahl abgeben</button>
+
         <div id="status">
           <span id="board-name">Individuelles Brett</span> ·
           <span>Ziel: <span id="target-label">Rot</span></span> ·
           <span>Restzeit: <span id="timer-label">–</span></span>
         </div>
+
+        <div id="bids-container">
+          <h4>Zugangebote</h4>
+          <ul id="bids-list"></ul>
+        </div>
+        
         <div id="board" aria-label="Spielfeld"></div>
         <p>Bewege den Roboter mit den Pfeiltasten. Er rutscht bis zum Hindernis.</p>
       </section>
+
+      <section id="game-over-view" aria-label="Spielende" hidden>
+        <h2>Spielende</h2>
+        <p id="game-over-msg"></p>
+        <button id="play-again">Nochmal spielen</button>
+      </section>
     </main>
 
-    <!-- Die Skript-Einbindung -->
-    <script src="js/quadrantData.js"></script>
-    <script src="js/app.js" defer></script>
+    <!-- Die Skript-Einbindung (JavaScript Modules) -->
+    <script type="module" src="js/main.js"></script>
   </body>
 </html>
