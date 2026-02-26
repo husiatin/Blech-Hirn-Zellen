@@ -5,7 +5,7 @@
 export const WALLS = { N: 1, E: 2, S: 4, W: 8 };
 
 export const QUADRANT_DATA = {
-  // === BLOCK 1: "Haken"-Muster ===
+  // === BLOCK 1: Oben links ===
   block1: {
     A: [[0,2,0,0,0,0,0,0],
         [0,0,0,9,0,0,0,0],
@@ -25,7 +25,7 @@ export const QUADRANT_DATA = {
         [0,0,0,0,0,0,0,0],
         [0,0,0,0,0,0,0,0]],
   },
-  // === BLOCK 2: "Spiral"-Muster ===
+  // === BLOCK 2: oben rechts  ===
   block2: {
     A: [[2,0,0,0,0,0,0,0], 
         [0,0,0,0,6,0,0,0], 
@@ -45,7 +45,7 @@ export const QUADRANT_DATA = {
         [0,0,3,0,0,0,0,0], 
         [0,0,0,0,0,12,0,0]],
   },
-  // === BLOCK 3: "Korridor"-Muster ===
+  // === BLOCK 3: unten links ===
   block3: {
     A: [[0,0,0,0,0,0,0,0], 
         [0,0,0,0,12,0,0,0], 
@@ -65,7 +65,7 @@ export const QUADRANT_DATA = {
         [0,0,12,0,0,0,0,0], 
         [0,0,0,0,0,2,0,0]],
   },
-  // === BLOCK 4: "Fragmentiertes"-Muster ===
+  // === BLOCK 4: unten rechts ===
   block4: {
     A: [[0,0,0,0,0,0,0,0], 
         [0,0,0,0,0,0,0,0], 
