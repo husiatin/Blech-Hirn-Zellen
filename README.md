@@ -6,7 +6,7 @@ they hit another robot or a wall.
 
 ## Installation
 1. Clone the repo into a local directory -> e.g. `git clone https://github.com/husiatin/Blech-Hirn-Zellen.git`
-2. If Docker / Docker compose is installed navigate to the root directory and execute the docker-compose.yml file using `docker compose -f 'docker-compose.yml' up -d --build `
+2. If Docker / Docker compose is installed navigate to the root directory and execute the docker-compose.yml file using `docker compose -f 'docker-compose.yml' up -d --build`
 ![Docker compose](./documentation_images/docker_compose.png)
 
 If only one container should be started use:
@@ -22,28 +22,39 @@ Alternativly use Visual Studio Code:
 TODO
 
 ## Application structure
+```
 Blech-Hirn-Zellen/
-│   docker-compose.yml          # File for creating the docker containers
-│   README.md                   # Project overview
+│   docker-compose.yml
+│   README.md
 │
-├───backend                     # API
+├───backend
 │   └───fastapi
 │       │   Dockerfile
 │       │   requirements.txt
 │       │
-│       └───app                 # API code directory
+│       └───app
 │               main.py
 │               __init__.py
 │
-└───Frontend                    # Web server and web frontend
-    └───nginx                   # Web server
+├───documentation_images
+│       docker_compose.png
+│       fastapi_container_logs.png
+│       nginx_container_logs.png
+│       run_all_services.png
+│
+└───Frontend
+    └───nginx
         │   Dockerfile
         │   nginx.conf
         │
-        └───static              # Web frontend files
-                app.js
-                index.html
-                styles.css
+        └───static
+            │   index.html
+            │   styles.css
+            │
+            └───js
+                    app.js
+                    quadrantData.js
+```
 
 ## Looking at the containers logs
 When the application doesn't work like it should it is a good idea to look at the logs of the containers first.
@@ -52,6 +63,7 @@ Exchange "name-of-container" with the actual name your container.
 
 Nginx logs: `docker logs name-of-container-nginx-1`
 ![Nginx container logs](./documentation_images/nginx_container_logs.png)
+
 FastAPI logs: `docker logs name-of-container-fastapi-1`
 ![FastAPI container logs](./documentation_images/fastapi_container_logs.png)
 
@@ -75,3 +87,4 @@ The documentation of the api can be accessed by navigating to http://127.0.0.1/a
 ## Docker
 There are two Dockerfiles. One for creating the FastAPI container and the other for creating the nginx server.
 Additionally, there is a docker-compose.yml file that creates the two containers based on the two Dockerfiles and setups a network through which the containers communicate with each other.
+
