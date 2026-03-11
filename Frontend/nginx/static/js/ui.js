@@ -1,4 +1,4 @@
-import { boardEl, playerListContainer, playerListUl, playerListGameId, playerNameDisplay, boardName, targetLabel } from './dom.js';
+import { boardEl, playerListContainer, playerListUl, playerListGameId, playerNameDisplay, boardName, targetLabel, guideModal, guideButton, guideSpan } from './dom.js';
 import { WALLS } from './quadrantData.js';
 import { state } from './state.js';
 import { lobby, game } from './dom.js';
@@ -110,4 +110,21 @@ export function renderBidList(gameInfo) {
         li.textContent = `${name}: ${label} moves`;
         ul.appendChild(li);
     }
+}
+
+// When the user clicks the button, open the modal 
+guideButton.onclick = function() {
+  guideModal.style.display = "block";
+}
+
+// When the user clicks on <span> (x), close the modal
+guideSpan.onclick = function() {
+  guideModal.style.display = "none";
+}
+
+// When the user clicks anywhere outside of the modal, close it
+window.onclick = function(event) {
+  if (event.target == guideModal) {
+    guideModal.style.display = "none";
+  }
 }
