@@ -15,3 +15,6 @@ export const boardConfigForm = document.getElementById('board-config-form');
 export const lobby = document.getElementById('lobby-view');
 export const game = document.getElementById('game-view');
 export const makeBet = document.getElementById('make-bet');
+export var guideModal = document.getElementById("guide-modal");
+export var guideButton = document.getElementById("guide-btn");
+export var guideSpan = document.getElementsByClassName("close")[0];
