@@ -1,13 +1,34 @@
 from fastapi import APIRouter, HTTPException
-from typing import List
+from typing import Any, List
 import logging
+from pydantic import BaseModel, Field
 
 from .models import Player, Board, Bid, GameStatus
 from .utils import random_player_id_with_n_characters, random_player_name, random_game_id_with_N_digits
 from .game import games, players, Game, game_exists
 from .notifications import manager
+from .core_adapter import board_data_to_walls, walls_to_board_data, robots_to_state, state_to_robots
+from .core import slide
 
 router = APIRouter()
+
+# TODO roadmap:
+# - Replace debug endpoints with production endpoints once replay workflow is implemented.
+# - Validate bid rules (time window, duplicate handling, tie-break strategy).
+# - Add endpoint for submitting official replay moves and broadcasting adjudication results.
+# - Add phase guards so actions are accepted only in valid `RoundPhase`.
+
+
+class AdapterRoundtripRequest(BaseModel):
+    board_data: List[List[int]] = Field(default_factory=list)
+    robots: List[dict[str, Any]] = Field(default_factory=list)
+
+
+class MoveSimulateRequest(BaseModel):
+    board_data: List[List[int]] = Field(default_factory=list)
+    robots: List[dict[str, Any]] = Field(default_factory=list)
+    active_robot_id: str
+    direction: str
 
 
 @router.post("/games")
@@ -122,3 +143,60 @@ async def make_bid(game_id: str, bid: Bid):
     await game.start_timer(game.on_timer_end)
     await manager.broadcast(game_id, {"type": "bid_made", "payload": game.dict()})
     return {"Bid": "accepted"}
+
+
+@router.post("/debug/adapter/roundtrip")
+async def adapter_roundtrip(payload: AdapterRoundtripRequest):
+    """Debug route: validate format mapping between frontend payloads and core types."""
+    board_data = payload.board_data
+    n = len(board_data)
+
+    walls = board_data_to_walls(board_data)
+    board_data_roundtrip = walls_to_board_data(n, walls, include_outer_borders=True)
+
+    state, robot_ids = robots_to_state(payload.robots)
+    robots_roundtrip = state_to_robots(state, robot_ids, template=payload.robots)
+
+    return {
+        "ok": board_data_roundtrip == board_data,
+        "board_size": n,
+        "walls": {
+            "vertical": sorted(list(walls.vertical)),
+            "horizontal": sorted(list(walls.horizontal)),
+        },
+        "board_data_roundtrip": board_data_roundtrip,
+        "state": [{"row": pos.row, "col": pos.col} for pos in state.robots],
+        "robots_roundtrip": robots_roundtrip,
+    }
+
+
+@router.post("/debug/move/simulate")
+async def debug_move_simulate(payload: MoveSimulateRequest):
+    """Debug route: simulate exactly one slide move via core.py."""
+    try:
+        board_data = payload.board_data
+        n = len(board_data)
+        walls = board_data_to_walls(board_data)
+        state, robot_ids = robots_to_state(payload.robots)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    try:
+        robot_idx = robot_ids.index(payload.active_robot_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="active_robot_id not found in robots") from exc
+
+    try:
+        next_state = slide(state, robot_idx, payload.direction, n, walls)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    robots_after_move = state_to_robots(next_state, robot_ids, template=payload.robots)
+    return {
+        "board_size": n,
+        "active_robot_id": payload.active_robot_id,
+        "direction": payload.direction,
+        "state_before": [{"row": pos.row, "col": pos.col} for pos in state.robots],
+        "state_after": [{"row": pos.row, "col": pos.col} for pos in next_state.robots],
+        "robots_after_move": robots_after_move,
+    }
