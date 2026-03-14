@@ -3,7 +3,13 @@ from pydantic import BaseModel, Field
 from threading import Timer
 import logging
 
-from .models import Player, Board, Bid, GameStatus
+from .models import Player, Board, Bid, GameStatus, RoundPhase
+
+# TODO roadmap:
+# - Persist game state instead of in-memory lists.
+# - Add authoritative round state (official robot positions + active target chip).
+# - Implement timer transition: PLANNING -> REPLAY and broadcast to all players.
+# - Implement replay adjudication flow (lowest bid first, fallback to next bidder).
 
 
 class Game(BaseModel):
@@ -13,6 +19,7 @@ class Game(BaseModel):
     player_list: List[Player]
     board: Board
     game_status: GameStatus = GameStatus.LOBBY
+    round_phase: RoundPhase = RoundPhase.PLANNING
     bids: List[Bid] = Field(default_factory=list)
     is_timer_running: bool = False
     timer_duration: float = 60.0
@@ -41,10 +48,10 @@ class Game(BaseModel):
         self.is_timer_running = True
         timer = Timer(self.timer_duration, on_timer_end)
         timer.start()
-    # def set robots start postions
+    # TODO: set robot start positions.
 
 
-# In-memory game and player state
+# In-memory game and player state.
 games: List[Game] = []
 players: List[Player] = []
 
