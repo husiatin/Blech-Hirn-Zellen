@@ -1,4 +1,4 @@
-import { state, Player, GameInfo } from './state.js';
+import { gameInfo } from './state.js';
 import { renderPlayerList, renderPlayerName, startRound, renderBidList } from './ui.js';
 import { show } from './ui.js';
 
@@ -10,9 +10,9 @@ export function handleNotificationMessage(message) {
     case 'player_joined':
       if (message.payload && message.payload.player) {
         console.log(`Player joined: ${message.payload.player.player_name}`);
-        if (state.gameInfo && state.gameInfo.player_list) {
-          state.gameInfo.player_list.push(message.payload.player);
-          renderPlayerList(state.gameInfo);
+        if (gameInfo.player_list) {
+          gameInfo.player_list.push(message.payload.player);
+          renderPlayerList(gameInfo);
         }
       }
       break;
@@ -20,14 +20,13 @@ export function handleNotificationMessage(message) {
       if (message.payload) {
         const game = message.payload;
         console.log(`Game update: ${game.game_status}`);
-        state.gameInfo = game;
-        state.finalBoardData = game.board.board_data;
-        state.roundEndAt = Date.now() + (game.timer_duration || 60) * 1000;
+        Object.assign(gameInfo, game);
+        gameInfo.roundEndAt = Date.now() + (game.timer_duration || 60) * 1000;
         if (game.game_status === 1) {
-            renderPlayerName();
-            startRound();
-            show('game');
-            location.hash = '#game';
+          renderPlayerName();
+          startRound();
+          show('game');
+          location.hash = '#game';
         }
       }
       break;
@@ -36,8 +35,8 @@ export function handleNotificationMessage(message) {
         const game = message.payload;
         console.log(`Game update: ${game.bid}`);
         // TODO start local timer and show bid info in UI
-        state.gameInfo = game;
-        renderBidList(state.gameInfo);
+        Object.assign(gameInfo, game);
+        renderBidList(gameInfo);
       }
       break;
     default:
@@ -47,15 +46,15 @@ export function handleNotificationMessage(message) {
 
 export async function sendStartGameToBackend() {
   try {
-    if (!state.gameInfo || !state.gameInfo.game_id || !state.playerInfo || !state.playerInfo.player_id) {
+    if (!gameInfo.game_id || !gameInfo.playerInfo || !gameInfo.playerInfo.player_id) {
       console.warn('Cannot start game: missing gameInfo or playerInfo');
       return;
     }
-    if (state.playerInfo.player_id !== state.gameInfo.game_master_id) {
+    if (gameInfo.playerInfo.player_id !== gameInfo.game_master_id) {
       console.warn('Only the game master can start the game');
       return;
     }
-    const response = await fetch(`http://localhost/api/games/${encodeURIComponent(state.gameInfo.game_id)}/start?game_master_id=${encodeURIComponent(state.playerInfo.player_id)}`, {
+    const response = await fetch(`http://localhost/api/games/${encodeURIComponent(gameInfo.game_id)}/start?game_master_id=${encodeURIComponent(gameInfo.playerInfo.player_id)}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" }
     });
@@ -70,16 +69,16 @@ export async function sendStartGameToBackend() {
 }
 
 export function connectNotificationWebsocket(gameId) {
-  if (!state.playerInfo || !state.playerInfo.player_id) {
+  if (!gameInfo.playerInfo || !gameInfo.playerInfo.player_id) {
     console.warn('Cannot open websocket: missing playerInfo');
     return;
   }
   if (ws) {
-    try { ws.close(); } catch (e) {}
+    try { ws.close(); } catch (e) { }
     ws = null;
   }
   const wsProtocol = (location.protocol === 'https:') ? 'wss' : 'ws';
-  const wsUrl = `${wsProtocol}://${location.host}/api/ws/games/${gameId}/${state.playerInfo.player_id}`;
+  const wsUrl = `${wsProtocol}://${location.host}/api/ws/games/${gameId}/${gameInfo.playerInfo.player_id}`;
   ws = new WebSocket(wsUrl);
   ws.addEventListener('open', () => { console.log('WebSocket connection established', wsUrl); });
   ws.addEventListener('message', (event) => {
@@ -94,11 +93,11 @@ export function connectNotificationWebsocket(gameId) {
   ws.addEventListener('error', (err) => { console.error('WebSocket error', err); });
 }
 
-export async function createGameRequest(playerInfo, finalBoardData) {
+export async function createGameRequest(playerInfo, board) {
   const response = await fetch("http://localhost/api/games", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ player_info: playerInfo, board_configuration: { board_size: state.BOARD_SIZE, board_data: finalBoardData } })
+    body: JSON.stringify({ player_info: playerInfo, board_configuration: { board_size: gameInfo.BOARD_SIZE, board_data: board } })
   });
   if (!response.ok) {
     const text = await response.text();

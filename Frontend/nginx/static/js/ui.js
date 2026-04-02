@@ -1,6 +1,6 @@
 import { boardEl, playerListContainer, playerListUl, playerListGameId, playerNameDisplay, boardName, targetLabel, guideModal, guideButton, guideSpan } from './dom.js';
 import { WALLS } from './quadrantData.js';
-import { state } from './state.js';
+import { gameInfo } from './state.js';
 import { lobby, game } from './dom.js';
 
 export function renderPlayerList(gameInfo) {
@@ -37,18 +37,18 @@ export function renderPlayerList(gameInfo) {
 
 export function renderPlayerName() {
   if (!playerNameDisplay) return;
-  if (!state.playerInfo || !state.playerInfo.player_name) {
+  if (!gameInfo.playerInfo || !gameInfo.playerInfo.player_name) {
     playerNameDisplay.hidden = true;
     return;
   }
-  playerNameDisplay.textContent = `Dein Name: ${state.playerInfo.player_name}`;
+  playerNameDisplay.textContent = `Dein Name: ${gameInfo.playerInfo.player_name}`;
   playerNameDisplay.hidden = false;
 }
 
 export function renderBoard(boardData) {
   boardEl.innerHTML = '';
-  for (let y = 0; y < state.BOARD_SIZE; y++) {
-    for (let x = 0; x < state.BOARD_SIZE; x++) {
+  for (let y = 0; y < gameInfo.BOARD_SIZE; y++) {
+    for (let x = 0; x < gameInfo.BOARD_SIZE; x++) {
       const cell = document.createElement('div');
       cell.className = 'cell';
       cell.dataset.x = String(x); cell.dataset.y = String(y);
@@ -66,12 +66,12 @@ export function renderRobots() {
   document.querySelectorAll('[class*="robot-"], .selected').forEach(c => {
     c.className = c.className.replace(/robot-\w+/g, '').replace('selected', '').trim();
   });
-  for (const robot of state.game.robots) {
+  for (const robot of gameInfo.robots) {
     const selector = `.cell[data-x="${robot.x}"][data-y="${robot.y}"]`;
     const cell = document.querySelector(selector);
     if (cell) {
       cell.classList.add(`robot-${robot.id}`);
-      if (robot.id === state.game.activeRobotId) {
+      if (robot.id === gameInfo.activeRobotId) {
         cell.classList.add('selected');
       }
     }
@@ -79,51 +79,51 @@ export function renderRobots() {
 }
 
 export function renderChips() {
-    
+
 }
 
 export function startRound() {
   boardName.textContent = 'Individuelles Brett';
-  targetLabel.textContent = state.game.target.color;
-  state.roundEndAt = Date.now() + state.game.timerSeconds * 1000;
-  renderBoard(state.finalBoardData);
+  targetLabel.textContent = gameInfo.goal_chip.color;
+  gameInfo.roundEndAt = Date.now() + gameInfo.timer_duration * 1000;
+  renderBoard(gameInfo.board);
   renderRobots();
 }
 
 export function show(view) {
   // view is 'lobby' or 'game' or others
-  
+
   if (lobby) lobby.hidden = (view !== 'lobby');
   if (game) game.hidden = (view !== 'game');
 }
 
 export function renderBidList(gameInfo) {
-    const ul = document.getElementById('bids-list');
-    if (!ul) return;
-    ul.innerHTML = '';
-    const bids = gameInfo?.bids ?? [];
-    for (const bid of bids) {
-        const player = (gameInfo?.player_list ?? []).find(p => p.player_id === bid.player_id);
-        const name = player ? player.player_name : bid.player_id;
-        const label = bid.number_of_moves;
-        const li = document.createElement('li');
-        li.textContent = `${name}: ${label} moves`;
-        ul.appendChild(li);
-    }
+  const ul = document.getElementById('bids-list');
+  if (!ul) return;
+  ul.innerHTML = '';
+  const bids = gameInfo?.bids ?? [];
+  for (const bid of bids) {
+    const player = (gameInfo?.player_list ?? []).find(p => p.player_id === bid.player_id);
+    const name = player ? player.player_name : bid.player_id;
+    const label = bid.number_of_moves;
+    const li = document.createElement('li');
+    li.textContent = `${name}: ${label} moves`;
+    ul.appendChild(li);
+  }
 }
 
 // When the user clicks the button, open the modal 
-guideButton.onclick = function() {
+guideButton.onclick = function () {
   guideModal.style.display = "block";
 }
 
 // When the user clicks on <span> (x), close the modal
-guideSpan.onclick = function() {
+guideSpan.onclick = function () {
   guideModal.style.display = "none";
 }
 
 // When the user clicks anywhere outside of the modal, close it
-window.onclick = function(event) {
+window.onclick = function (event) {
   if (event.target == guideModal) {
     guideModal.style.display = "none";
   }

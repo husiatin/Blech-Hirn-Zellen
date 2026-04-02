@@ -1,14 +1,14 @@
-import { state } from './state.js';
+import { gameInfo } from './state.js';
 import { WALLS } from './quadrantData.js';
 import { renderRobots } from './ui.js';
 
 export function isOccupied(x, y) {
-  const activeId = state.game.activeRobotId;
-  return state.game.robots.some(robot => robot.id !== activeId && robot.x === x && robot.y === y);
+  const activeId = gameInfo.activeRobotId;
+  return gameInfo.robots.some(robot => robot.id !== activeId && robot.x === x && robot.y === y);
 }
 
 export function slide(dx, dy) {
-  const activeRobot = state.game.robots.find(r => r.id === state.game.activeRobotId);
+  const activeRobot = gameInfo.robots.find(r => r.id === gameInfo.activeRobotId);
   if (!activeRobot) return;
 
   let moved = false;
@@ -18,10 +18,10 @@ export function slide(dx, dy) {
     const nextX = currentX + dx;
     const nextY = currentY + dy;
 
-    if (nextX < 0 || nextY < 0 || nextX >= state.BOARD_SIZE || nextY >= state.BOARD_SIZE) break;
+    if (nextX < 0 || nextY < 0 || nextX >= gameInfo.BOARD_SIZE || nextY >= gameInfo.BOARD_SIZE) break;
 
-    const currentWalls = state.finalBoardData[currentY][currentX];
-    const nextWalls = state.finalBoardData[nextY][nextX];
+    const currentWalls = gameInfo.board[currentY][currentX];
+    const nextWalls = gameInfo.board[nextY][nextX];
 
     let wallInTheWay = false;
     if (dx === 1 && (currentWalls & WALLS.E || nextWalls & WALLS.W)) wallInTheWay = true;
