@@ -1,7 +1,7 @@
 import { BOARD_SIZE } from './constants.js';
 
 export class GameInfo {
-  constructor (game_id, player_count, game_master_id, player_list, board, game_status, bids, is_timer_running, timer_duration) {
+  constructor(game_id, player_count, game_master_id, player_list, board, game_status, bids, is_timer_running, timer_duration) {
     this.game_id = game_id;
     this.player_count = player_count;
     this.game_master_id = game_master_id;
@@ -23,19 +23,26 @@ export class Player {
 }
 
 export class Chip {
-    constructor(color, symbol, x, y) {
-        this.color = color;
-        this.symbol = symbol;
-        this.x = x;
-        this.y = y;
-    }
+  constructor(color, symbol, x, y) {
+    this.color = color;
+    this.symbol = symbol;
+    this.x = x;
+    this.y = y;
+  }
+}
+
+export class Symbol {
+  CIRCLE = 0;
+  STAR = 1;
+  COG = 2;
+  PENTAGON = 3;
 }
 
 export class Color {
-    RED = '#d44';
-    BLUE = '#44d';
-    GREEN = '#4d4';
-    YELLOW = '#dd4';
+  RED = '#d44';
+  BLUE = '#44d';
+  GREEN = '#4d4';
+  YELLOW = '#dd4';
 }
 
 // Global mutable state object shared between modules
@@ -45,9 +52,9 @@ export const state = {
     timerSeconds: 60,
     playerName: '',
     robots: [
-      { id: 'red',    color: Color.RED, x: 1, y: 1 },
-      { id: 'blue',   color: Color.BLUE, x: 14, y: 2 },
-      { id: 'green',  color: Color.GREEN, x: 6, y: 13 },
+      { id: 'red', color: Color.RED, x: 1, y: 1 },
+      { id: 'blue', color: Color.BLUE, x: 14, y: 2 },
+      { id: 'green', color: Color.GREEN, x: 6, y: 13 },
       { id: 'yellow', color: Color.YELLOW, x: 13, y: 14 },
     ],
     activeRobotId: 'red',
