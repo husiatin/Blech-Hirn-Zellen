@@ -39,3 +39,31 @@ export function slide(dx, dy) {
   }
   if (moved) renderRobots();
 }
+
+function getRandomInt(min, max) {
+  const minCeiled = Math.ceil(min);
+  const maxFloored = Math.floor(max);
+  return Math.floor(Math.random() * (maxFloored - minCeiled) + minCeiled); // The maximum is exclusive and the minimum is inclusive
+}
+
+export function setRobotsStartPostions(assembledData) {
+  // No placement inside middle area
+  // No placement on chips
+  // No placement on other robots
+
+  let possiblePositions = [];
+  for (let y = 0; y < assembledData.length; y++) {
+    for (let x = 0; x < assembledData[y].length; x++) {
+      if (assembledData[y][x] !== 3 && assembledData[y][x] !== 6 && assembledData[y][x] !== 9 && assembledData[y][x] !== 12) {
+        possiblePositions.push({ x, y });
+      }
+    }
+  }
+
+  gameInfo.robots.forEach(robot => {
+    const randomPosition = possiblePositions[getRandomInt(0, possiblePositions.length)];
+    robot.x = randomPosition.x;
+    robot.y = randomPosition.y;
+    possiblePositions = possiblePositions.filter(pos => pos.x !== randomPosition.x || pos.y !== randomPosition.y);
+  });
+}

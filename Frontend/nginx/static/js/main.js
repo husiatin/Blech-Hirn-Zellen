@@ -44,7 +44,6 @@ if (boardConfigForm) {
 // create game
 createGame.addEventListener('click', async (e) => {
   try {
-    // Ensure finalBoardData is set based on current form choices if the board is empty
     const isBoardEmpty = gameInfo.board.every(row => row.every(cell => cell === 0));
     if (isBoardEmpty) {
       const form = document.getElementById('board-config-form');

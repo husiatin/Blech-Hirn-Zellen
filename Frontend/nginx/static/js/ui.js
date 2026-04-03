@@ -79,7 +79,23 @@ export function renderRobots() {
 }
 
 export function renderChips() {
-
+  document.querySelectorAll('.chip').forEach(c => c.remove());
+  if (!gameInfo.chips) return;
+  for (const chip of gameInfo.chips) {
+    const selector = `.cell[data-x="${chip.x}"][data-y="${chip.y}"]`;
+    const cell = document.querySelector(selector);
+    if (cell) {
+      const chipEl = document.createElement('div');
+      chipEl.className = `chip chip-${chip.color}`;
+      let char = '';
+      if (chip.symbol === 'circle') char = '●';
+      else if (chip.symbol === 'star') char = '★';
+      else if (chip.symbol === 'cog') char = '⚙';
+      else if (chip.symbol === 'pentagon') char = '⬟';
+      chipEl.textContent = char;
+      cell.appendChild(chipEl);
+    }
+  }
 }
 
 export function startRound() {
@@ -87,6 +103,7 @@ export function startRound() {
   targetLabel.textContent = gameInfo.goal_chip.color;
   gameInfo.roundEndAt = Date.now() + gameInfo.timer_duration * 1000;
   renderBoard(gameInfo.board);
+  renderChips();
   renderRobots();
 }
 

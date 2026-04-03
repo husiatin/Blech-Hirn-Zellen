@@ -51,11 +51,11 @@ export class Player {
 }
 
 export class Chip {
-  constructor(color, symbol, x, y) {
-    this.color = color;
-    this.symbol = symbol;
+  constructor(x, y, color, symbol) {
     this.x = x;
     this.y = y;
+    this.color = color;
+    this.symbol = symbol;
   }
 }
 
