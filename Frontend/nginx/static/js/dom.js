@@ -18,3 +18,5 @@ export const makeBet = document.getElementById('make-bet');
 export var guideModal = document.getElementById("guide-modal");
 export var guideButton = document.getElementById("guide-btn");
 export var guideSpan = document.getElementsByClassName("close")[0];
+export const roundTimerLabel = document.getElementById('timer-label');
+export const hourglassLabel = document.getElementById('hourglass-label');

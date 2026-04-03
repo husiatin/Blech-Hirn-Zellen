@@ -25,8 +25,8 @@ export class GameInfo {
     this.board = Array(BOARD_SIZE).fill(0).map(() => Array(BOARD_SIZE).fill(0));
     this.game_status = game_status;
     this.bids = bids;
-    this.is_timer_running = is_timer_running;
-    this.timer_duration = timer_duration;
+    this.is_timer_running = is_timer_running; //TODO rename to isHourglassRunning
+    this.timer_duration = timer_duration; //TODO rename to hourglassDuration
     this.BOARD_SIZE = BOARD_SIZE;
     this.robots = [
       new Robot('red', Color.RED, 1, 1),

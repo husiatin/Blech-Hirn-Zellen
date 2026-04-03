@@ -35,6 +35,7 @@ export function handleNotificationMessage(message) {
         const game = message.payload;
         console.log(`Game update: ${game.bid}`);
         // TODO start local timer and show bid info in UI
+        hourglassTimer();
         Object.assign(gameInfo, game);
         renderBidList(gameInfo);
       }

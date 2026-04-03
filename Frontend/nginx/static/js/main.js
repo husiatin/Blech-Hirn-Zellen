@@ -138,17 +138,6 @@ window.addEventListener('renderRobots', () => {
   import('./ui.js').then(mod => mod.renderRobots()).catch(() => { });
 });
 
-// timer update
-setInterval(() => {
-  const label = document.getElementById('timer-label');
-  if (!gameInfo.roundEndAt || location.hash !== '#game') {
-    if (label) label.textContent = '–';
-    return;
-  }
-  const remaining = Math.max(0, gameInfo.roundEndAt - Date.now());
-  if (label) label.textContent = `${Math.ceil(remaining / 1000)}s`;
-}, 200);
-
 // initial view
 if (!location.hash) location.hash = '#lobby';
 // show correct view for the current hash and react to changes

@@ -1,7 +1,7 @@
 import { boardEl, playerListContainer, playerListUl, playerListGameId, playerNameDisplay, boardName, targetLabel, guideModal, guideButton, guideSpan } from './dom.js';
 import { WALLS } from './quadrantData.js';
 import { gameInfo } from './state.js';
-import { lobby, game } from './dom.js';
+import { lobby, game, roundTimerLabel, hourglassLabel } from './dom.js';
 
 export function renderPlayerList(gameInfo) {
   if (!gameInfo) {
@@ -101,7 +101,7 @@ export function renderChips() {
 export function startRound() {
   boardName.textContent = 'Individuelles Brett';
   targetLabel.textContent = gameInfo.goal_chip.color;
-  gameInfo.roundEndAt = Date.now() + gameInfo.timer_duration * 1000;
+  roundTimer();
   renderBoard(gameInfo.board);
   renderChips();
   renderRobots();
@@ -144,4 +144,41 @@ window.onclick = function (event) {
   if (event.target == guideModal) {
     guideModal.style.display = "none";
   }
+}
+
+// timer after bid is made and backend has responded
+export function hourglassTimer() {
+  var hourglassSec = gameInfo.timer_duration;
+  timer(hourglassSec, hourglassLabel);
+}
+
+//timer for max round duration -> if players take too long to find a solution the round ends
+export function roundTimer() {
+  var roundSec = gameInfo.timer_duration * 60;
+  timer(roundSec, roundTimerLabel);
+}
+
+function timer(durationInSeconds, label) {
+  var timer = setInterval(() => {
+    if (!durationInSeconds || location.hash !== '#game') {
+      if (label) label.textContent = '–';
+      return;
+    }
+
+    if (label) {
+      var minutes = Math.floor(durationInSeconds / 60);
+      if (minutes > 0) {
+        label.textContent = `${minutes} min ${durationInSeconds % 60}s`;
+      }
+      else {
+        label.textContent = `${durationInSeconds % 60}s`;
+      }
+    }
+
+    durationInSeconds--;
+    if (durationInSeconds < 0) {
+      clearTimeout(timer);
+      // TODO trigger end of round in UI and backend or ends move and send that to backend
+    }
+  }, 1000); //1000ms = 1s
 }
