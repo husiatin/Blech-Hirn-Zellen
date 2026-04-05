@@ -1,4 +1,4 @@
-import { Chip } from './state.js';
+import { Chip, Color, Symbol } from './state.js';
 // hier sind die 4 Bretter mit jeweils zwei seiten gespeichert
 
 // Wand-Definition (Bitmaske)
@@ -7,48 +7,48 @@ export const WALLS = { N: 1, E: 2, S: 4, W: 8 };
 
 export const CHIP_POSITIONS = {
     block1: {
-        A: [new Chip(3, 1, 'red', 'circle'),
-        new Chip(1, 4, 'blue', 'star'),
-        new Chip(6, 3, 'green', 'cog'),
-        new Chip(4, 6, 'yellow', 'pentagon')],
+        A: [new Chip(3, 1, Color.RED, Symbol.CIRCLE),
+        new Chip(1, 4, Color.BLUE, Symbol.STAR),
+        new Chip(6, 3, Color.GREEN, Symbol.COG),
+        new Chip(4, 6, Color.YELLOW, Symbol.PENTAGON)],
 
-        B: [new Chip(4, 1, 'red', 'circle'),
-        new Chip(1, 3, 'blue', 'cog'),
-        new Chip(5, 5, 'green', 'pentagon'),
-        new Chip(3, 6, 'yellow', 'star')]
+        B: [new Chip(4, 1, Color.RED, Symbol.CIRCLE),
+        new Chip(1, 3, Color.BLUE, Symbol.COG),
+        new Chip(5, 5, Color.GREEN, Symbol.PENTAGON),
+        new Chip(3, 6, Color.YELLOW, Symbol.STAR)]
     },
     block2: {
-        A: [new Chip(4, 1, 'red', 'pentagon'),
-        new Chip(2, 2, 'blue', 'circle'),
-        new Chip(3, 5, 'green', 'star'),
-        new Chip(6, 6, 'yellow', 'cog')],
+        A: [new Chip(4, 1, Color.RED, Symbol.PENTAGON),
+        new Chip(2, 2, Color.BLUE, Symbol.CIRCLE),
+        new Chip(3, 5, Color.GREEN, Symbol.STAR),
+        new Chip(6, 6, Color.YELLOW, Symbol.COG)],
 
-        B: [new Chip(1, 1, 'red', 'star'),
-        new Chip(3, 3, 'blue', 'circle'),
-        new Chip(6, 5, 'green', 'cog'),
-        new Chip(2, 6, 'yellow', 'pentagon')]
+        B: [new Chip(1, 1, Color.RED, Symbol.STAR),
+        new Chip(3, 3, Color.BLUE, Symbol.CIRCLE),
+        new Chip(6, 5, Color.GREEN, Symbol.COG),
+        new Chip(2, 6, Color.YELLOW, Symbol.PENTAGON)]
     },
     block3: {
-        A: [new Chip(3, 2, 'red', 'cog'),
-        new Chip(5, 3, 'blue', 'pentagon'),
-        new Chip(2, 4, 'green', 'circle'),
-        new Chip(4, 5, 'yellow', 'star')],
+        A: [new Chip(3, 2, Color.RED, Symbol.COG),
+        new Chip(5, 3, Color.BLUE, Symbol.PENTAGON),
+        new Chip(2, 4, Color.GREEN, Symbol.CIRCLE),
+        new Chip(4, 5, Color.YELLOW, Symbol.STAR)],
 
-        B: [new Chip(1, 1, 'red', 'cog'),
-        new Chip(5, 1, 'blue', 'pentagon'),
-        new Chip(6, 4, 'green', 'star'),
-        new Chip(2, 6, 'yellow', 'circle')]
+        B: [new Chip(1, 1, Color.RED, Symbol.COG),
+        new Chip(5, 1, Color.BLUE, Symbol.PENTAGON),
+        new Chip(6, 4, Color.GREEN, Symbol.STAR),
+        new Chip(2, 6, Color.YELLOW, Symbol.CIRCLE)]
     },
     block4: {
-        A: [new Chip(0, 2, 'red', 'star'),
-        new Chip(5, 3, 'blue', 'cog'),
-        new Chip(1, 5, 'green', 'pentagon'),
-        new Chip(6, 6, 'yellow', 'circle')],
+        A: [new Chip(0, 2, Color.RED, Symbol.STAR),
+        new Chip(5, 3, Color.BLUE, Symbol.COG),
+        new Chip(1, 5, Color.GREEN, Symbol.PENTAGON),
+        new Chip(6, 6, Color.YELLOW, Symbol.CIRCLE)],
 
-        B: [new Chip(5, 1, 'red', 'circle'),
-        new Chip(1, 3, 'blue', 'cog'),
-        new Chip(6, 5, 'green', 'pentagon'),
-        new Chip(2, 6, 'yellow', 'star')]
+        B: [new Chip(5, 1, Color.RED, Symbol.CIRCLE),
+        new Chip(1, 3, Color.BLUE, Symbol.COG),
+        new Chip(6, 5, Color.GREEN, Symbol.PENTAGON),
+        new Chip(2, 6, Color.YELLOW, Symbol.STAR)]
     }
 }
 
@@ -117,7 +117,7 @@ export const QUADRANT_DATA = {
     block4: {
         A: [[6, 0, 0, 0, 0, 0, 0, 0],
         [0, 0, 0, 0, 0, 0, 0, 0],
-        [6, 0, 0, 0, 0, 0, 0, 0],
+        [6, 0, 0, 0, 0, 0, 0, 1],
         [0, 0, 0, 0, 0, 9, 0, 0],
         [0, 0, 0, 0, 0, 0, 0, 0],
         [0, 12, 0, 0, 0, 0, 0, 0],

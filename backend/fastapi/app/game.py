@@ -3,7 +3,7 @@ from pydantic import BaseModel, Field
 from threading import Timer
 import logging
 
-from .models import Player, Board, Bid, GameStatus
+from .models import Player, Board, Bid, GameStatus, Robot, GameChip
 
 
 class Game(BaseModel):
@@ -11,11 +11,17 @@ class Game(BaseModel):
     player_count: int
     game_master_id: str
     player_list: List[Player]
-    board: Board
+    board: Board = Board()
     game_status: GameStatus = GameStatus.LOBBY
     bids: List[Bid] = Field(default_factory=list)
-    is_timer_running: bool = False
-    timer_duration: float = 60.0
+    is_hourglass_running: bool = False
+    hourglass_duration: int = 60
+    is_round_timer_running: bool = False
+    round_timer_duration: int = 5
+    robots: List[Robot] = Field(default_factory=list)
+    active_robot_id: str = ""
+    goal_chip: Optional[GameChip] = None
+    chips: List[GameChip] = Field(default_factory=list)
 
     def is_player(self, player_id: str) -> Optional[Player]:
         for player in self.player_list:
@@ -28,18 +34,28 @@ class Game(BaseModel):
         # keep bids ordered by declared number of moves (lowest first)
         self.bids.sort(key=lambda b: getattr(b, "number_of_moves", 0))
 
-    def set_timer_duration(self, new_timer_duration: float) -> None:
-        self.timer_duration = new_timer_duration
+    def set_hourglass_duration(self, new_hourglass_duration: int) -> None:
+        self.hourglass_duration = new_hourglass_duration
+
+    def set_round_timer_duration(self, new_round_timer_duration: int) -> None:
+        self.round_timer_duration = new_round_timer_duration
 
     def on_timer_end(self):
         # TODO make broadcast to players that timer has ended and process bids(tell the player with the least number to show his moves)
         return None
 
-    async def start_timer(self, on_timer_end) -> None:
-        if self.is_timer_running:
+    def start_hourglass_timer(self, on_timer_end) -> None:
+        if self.is_hourglass_running:
             return
-        self.is_timer_running = True
-        timer = Timer(self.timer_duration, on_timer_end)
+        self.is_hourglass_running = True
+        timer = Timer(self.hourglass_duration, on_timer_end)
+        timer.start()
+    
+    def start_round_timer(self, on_timer_end) -> None:
+        if self.is_round_timer_running:
+            return
+        self.is_round_timer_running = True
+        timer = Timer(self.round_timer_duration, on_timer_end)
         timer.start()
     # def set robots start postions
 

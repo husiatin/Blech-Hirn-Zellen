@@ -1,7 +1,6 @@
 import { BOARD_SIZE } from './constants.js';
 import { QUADRANT_DATA, WALLS, CHIP_POSITIONS } from './quadrantData.js';
-import { gameInfo, Chip } from './state.js';
-import { setRobotsStartPostions } from './robots.js';
+import { gameInfo, Chip, Robot } from './state.js';
 
 export function enforceSymmetry(boardData) {
   for (let y = 0; y < BOARD_SIZE; y++) {
@@ -43,8 +42,6 @@ export function assembleBoard(choices) {
     assembledData[0][i] |= WALLS.N; assembledData[BOARD_SIZE - 1][i] |= WALLS.S;
     assembledData[i][0] |= WALLS.W; assembledData[i][BOARD_SIZE - 1] |= WALLS.E;
   }
-
-  setRobotsStartPostions(assembledData);
 
   return assembledData;
 }

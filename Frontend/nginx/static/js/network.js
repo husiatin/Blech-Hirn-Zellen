@@ -1,5 +1,5 @@
-import { gameInfo } from './state.js';
-import { renderPlayerList, renderPlayerName, startRound, renderBidList } from './ui.js';
+import { gameInfo, playerInfo } from './state.js';
+import { renderPlayerList, renderPlayerName, startRound, renderBidList, hourglassTimer } from './ui.js';
 import { show } from './ui.js';
 
 let ws = null;
@@ -33,10 +33,10 @@ export function handleNotificationMessage(message) {
     case 'bid_made':
       if (message.payload) {
         const game = message.payload;
-        console.log(`Game update: ${game.bid}`);
+        console.log(`Game update: ${game.bids}`);
         // TODO start local timer and show bid info in UI
-        hourglassTimer();
         Object.assign(gameInfo, game);
+        hourglassTimer();
         renderBidList(gameInfo);
       }
       break;
@@ -47,17 +47,18 @@ export function handleNotificationMessage(message) {
 
 export async function sendStartGameToBackend() {
   try {
-    if (!gameInfo.game_id || !gameInfo.playerInfo || !gameInfo.playerInfo.player_id) {
+    if (!gameInfo.game_id || !playerInfo || !playerInfo.player_id) {
       console.warn('Cannot start game: missing gameInfo or playerInfo');
       return;
     }
-    if (gameInfo.playerInfo.player_id !== gameInfo.game_master_id) {
+    if (playerInfo.player_id !== gameInfo.game_master_id) {
       console.warn('Only the game master can start the game');
       return;
     }
-    const response = await fetch(`http://localhost/api/games/${encodeURIComponent(gameInfo.game_id)}/start?game_master_id=${encodeURIComponent(gameInfo.playerInfo.player_id)}`, {
+    const response = await fetch(`http://localhost/api/games/${encodeURIComponent(gameInfo.game_id)}/start`, {
       method: "PUT",
-      headers: { "Content-Type": "application/json" }
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(gameInfo)
     });
     if (!response.ok) {
       const text = await response.text();
@@ -70,7 +71,7 @@ export async function sendStartGameToBackend() {
 }
 
 export function connectNotificationWebsocket(gameId) {
-  if (!gameInfo.playerInfo || !gameInfo.playerInfo.player_id) {
+  if (!playerInfo || !playerInfo.player_id) {
     console.warn('Cannot open websocket: missing playerInfo');
     return;
   }
@@ -79,26 +80,32 @@ export function connectNotificationWebsocket(gameId) {
     ws = null;
   }
   const wsProtocol = (location.protocol === 'https:') ? 'wss' : 'ws';
-  const wsUrl = `${wsProtocol}://${location.host}/api/ws/games/${gameId}/${gameInfo.playerInfo.player_id}`;
+  const wsUrl = `${wsProtocol}://${location.host}/api/ws/games/${gameId}/${playerInfo.player_id}`;
   ws = new WebSocket(wsUrl);
   ws.addEventListener('open', () => { console.log('WebSocket connection established', wsUrl); });
   ws.addEventListener('message', (event) => {
+    let message;
     try {
-      const message = JSON.parse(event.data);
-      handleNotificationMessage(message);
+      message = JSON.parse(event.data);
     } catch (err) {
       console.warn('Received non-JSON websocket message', event.data);
+      return;
+    }
+    try {
+      handleNotificationMessage(message);
+    } catch (err) {
+      console.error('Error handling websocket message:', err);
     }
   });
   ws.addEventListener('close', () => { console.log('WebSocket closed'); });
   ws.addEventListener('error', (err) => { console.error('WebSocket error', err); });
 }
 
-export async function createGameRequest(playerInfo, board) {
+export async function createGameRequest(playerInfo) {
   const response = await fetch("http://localhost/api/games", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ player_info: playerInfo, board_configuration: { board_size: gameInfo.BOARD_SIZE, board_data: board } })
+    body: JSON.stringify(playerInfo)
   });
   if (!response.ok) {
     const text = await response.text();

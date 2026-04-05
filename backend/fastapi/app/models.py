@@ -14,44 +14,45 @@ class GameStatus(Enum):
     ENDED = 2
 
 
-class Position(BaseModel):
-    x: int
-    y: int
-
-
 class Move(BaseModel):
-    startPosition: Position
-    newPosition: Position
+    startX: int
+    startY: int
+    newX: int
+    newY: int
 
 
 class Board(BaseModel):
+    board_size: int = 16
     # board_data is a 2D array (rows of columns) of integers representing wall flags
     board_data: List[List[int]] = Field(default_factory=list)
 
 
-class Colour(Enum):
-    RED = 0
-    GREEN = 1
-    BLUE = 2
-    YELLOW = 3
+class Color(str, Enum):
+    RED = "red"
+    BLUE = "blue"
+    GREEN = "green"
+    YELLOW = "yellow"
 
 
-class Symbol(Enum):
-    CIRCLE = 0
-    STAR = 1
-    COG = 2
-    PENTAGON = 3
+class Symbol(str, Enum):
+    CIRCLE = "circle"
+    STAR = "star"
+    COG = "cog"
+    PENTAGON = "pentagon"
 
 
 class GameChip(BaseModel):
-    colour: Colour
+    x: int
+    y: int
+    color: Color
     symbol: Symbol
-    position: Position
 
 
 class Robot(BaseModel):
-    colour: Colour
-    start_position: Position
+    id: str
+    color: Color
+    x: int
+    y: int
 
 
 class Player(BaseModel):

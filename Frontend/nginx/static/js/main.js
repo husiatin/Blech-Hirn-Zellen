@@ -1,17 +1,19 @@
 import './quadrantData.js';
 import { boardConfigForm, createGame, joinGame, makeBet } from './dom.js';
-import { gameInfo, Player } from './state.js';
+import { gameInfo, Player, playerInfo, Robot, GameStatus, Color } from './state.js';
 import { assembleBoard } from './board.js';
 import { renderPlayerList, renderPlayerName, startRound, show, renderBidList } from './ui.js';
-import { slide } from './robots.js';
+import { slide, setRobotsStartPostions } from './robots.js';
 import { createGameRequest, joinGameRequest, connectNotificationWebsocket, sendStartGameToBackend, handleNotificationMessage, sendBidRequest } from './network.js';
 
 async function init() {
   try {
     const response = await fetch("http://localhost/api/players", { method: "POST" });
     const data = await response.json();
-    gameInfo.playerInfo = new Player(data.player_id, data.player_name, data.moves);
-    console.log(`Your Player Id is ${gameInfo.playerInfo.player_id} and your Player Name is ${gameInfo.playerInfo.player_name}!`);
+    playerInfo.player_id = data.player_id;
+    playerInfo.player_name = data.player_name;
+    //TODO REMOVE
+    console.log(`Your Player Id is ${playerInfo.player_id} and your Player Name is ${playerInfo.player_name}!`);
     renderPlayerName();
   } catch (err) {
     console.error('Failed to init player', err);
@@ -29,10 +31,14 @@ if (boardConfigForm) {
       block1: formData.get('block1_side'), block2: formData.get('block2_side'),
       block3: formData.get('block3_side'), block4: formData.get('block4_side'),
     };
-    gameInfo.timerDuration = Number(formData.get('timer'));
-    gameInfo.playerInfo.player_name = String(formData.get('playerName'));
+    gameInfo.round_timer_duration = Number(formData.get('timer'));
+    gameInfo.hourglass_duration = Number(formData.get('hourglass'));
+    playerInfo.player_name = String(formData.get('playerName'));
+    gameInfo.player_list.find(p => p.player_id === playerInfo.player_id).player_name = playerInfo.player_name;
     renderPlayerName();
-    gameInfo.board = assembleBoard(choices);
+    gameInfo.board.board_data = assembleBoard(choices);
+    gameInfo.game_status = GameStatus.STARTED;
+    setRobotsStartPostions(gameInfo.board.board_data);
     startRound();
     await sendStartGameToBackend();
     location.hash = '#game';
@@ -44,7 +50,7 @@ if (boardConfigForm) {
 // create game
 createGame.addEventListener('click', async (e) => {
   try {
-    const isBoardEmpty = gameInfo.board.every(row => row.every(cell => cell === 0));
+    const isBoardEmpty = gameInfo.board.board_data.every(row => row.every(cell => cell === 0));
     if (isBoardEmpty) {
       const form = document.getElementById('board-config-form');
       const choices = {
@@ -53,12 +59,14 @@ createGame.addEventListener('click', async (e) => {
         block3: (form && form.querySelector('input[name="block3_side"]:checked') || { value: 'A' }).value,
         block4: (form && form.querySelector('input[name="block4_side"]:checked') || { value: 'A' }).value,
       };
-      gameInfo.board = assembleBoard(choices);
+      gameInfo.board.board_data = assembleBoard(choices);
     }
-    const data = await createGameRequest(gameInfo.playerInfo, gameInfo.board);
+    const data = await createGameRequest(playerInfo);
+    if (data.robots && data.robots.length === 0) delete data.robots;
+    if (data.board && data.board.board_data && data.board.board_data.length === 0) delete data.board;
     Object.assign(gameInfo, data);
     renderPlayerList(gameInfo);
-    if (gameInfo.playerInfo && gameInfo.game_id && gameInfo.playerInfo.player_id === gameInfo.game_master_id) {
+    if (playerInfo && gameInfo.game_id && playerInfo.player_id === gameInfo.game_master_id) {
       createGame.disabled = true;
       createGame.classList.add('disabled');
     }
@@ -73,8 +81,10 @@ joinGame.addEventListener('click', async (e) => {
   try {
     const enteredGameId = document.querySelector('input[name="join-via-game-id"]').value.trim();
     if (!enteredGameId) return console.warn('No game id provided');
-    const data = await joinGameRequest(enteredGameId, gameInfo.playerInfo);
+    const data = await joinGameRequest(enteredGameId, playerInfo);
     if (data && data.game_id) {
+      if (data.robots && data.robots.length === 0) delete data.robots;
+      if (data.board && data.board.board_data && data.board.board_data.length === 0) delete data.board;
       Object.assign(gameInfo, data);
       renderPlayerList(gameInfo);
     }
@@ -89,7 +99,7 @@ makeBet.addEventListener('click', async (e) => {
   try {
     await sendBidRequest(
       gameInfo.game_id,
-      gameInfo.playerInfo.player_id,
+      playerInfo.player_id,
       Number(document.querySelector('input[name="move-count"]').value)
     );
     renderBidList(gameInfo);
@@ -107,7 +117,7 @@ document.getElementById('board').addEventListener('click', (e) => {
   const y = parseInt(cell.dataset.y, 10);
   const clickedRobot = gameInfo.robots.find(r => r.x === x && r.y === y);
   if (clickedRobot) {
-    gameInfo.activeRobotId = clickedRobot.id;
+    gameInfo.active_robot_id = clickedRobot.id || clickedRobot.color;
     // trigger re-render via setting robot render in UI module
     const evt = new Event('renderRobots');
     window.dispatchEvent(evt);
@@ -120,7 +130,7 @@ window.addEventListener('keydown', (e) => {
   const robotIds = ['red', 'blue', 'green', 'yellow'];
   const keyIndex = parseInt(e.key, 10) - 1;
   if (keyIndex >= 0 && keyIndex < robotIds.length) {
-    gameInfo.activeRobotId = robotIds[keyIndex];
+    gameInfo.active_robot_id = robotIds[keyIndex];
     window.dispatchEvent(new Event('renderRobots'));
     return;
   }

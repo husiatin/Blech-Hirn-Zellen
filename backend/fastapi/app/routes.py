@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException
 from typing import List
 import logging
 
-from .models import Player, Board, Bid, GameStatus
+from .models import Player, Bid, GameStatus
 from .utils import random_player_id_with_n_characters, random_player_name, random_game_id_with_N_digits
 from .game import games, players, Game, game_exists
 from .notifications import manager
@@ -11,7 +11,7 @@ router = APIRouter()
 
 
 @router.post("/games")
-async def create_game(player_info: Player, board_configuration: Board):
+async def create_game(player_info: Player):
     try:
         game_id = str(random_game_id_with_N_digits(8))
         new_player_list: List[Player] = [player_info]
@@ -20,7 +20,6 @@ async def create_game(player_info: Player, board_configuration: Board):
             player_count=1,
             game_master_id=player_info.player_id,
             player_list=new_player_list,
-            board=board_configuration,
         )
         games.append(new_game)
         return new_game
@@ -83,13 +82,18 @@ async def join_game(game_id: str, player_info: Player):
 
 
 @router.put("/games/{game_id}/start")
-async def start_game(game_id: str, game_master_id: str):
+async def start_game(game_id: str, game_info: Game):
     game = await game_exists(game_id)
     if game is None:
         return {"Wrong": "game_id"}
-    if game.game_master_id != game_master_id:
+    if game.game_master_id != game_info.game_master_id:
         return {"Wrong": "Not Game Master"}
-    game.game_status = GameStatus.STARTED
+    game.board = game_info.board
+    game.robots = game_info.robots
+    game.goal_chip = game_info.goal_chip
+    game.chips = game_info.chips
+    game.game_status = game_info.game_status
+    game.start_round_timer(game.on_timer_end)
     await manager.broadcast(game_id, {"type": "game_started", "payload": game.dict()})
     return {"Game": "Started"}
 
@@ -119,6 +123,6 @@ async def make_bid(game_id: str, bid: Bid):
     if player is None:
         return {"Wrong": "Player"}
     game.bids.append(bid)
-    await game.start_timer(game.on_timer_end)
+    game.start_hourglass_timer(game.on_timer_end)
     await manager.broadcast(game_id, {"type": "bid_made", "payload": game.dict()})
     return {"Bid": "accepted"}
