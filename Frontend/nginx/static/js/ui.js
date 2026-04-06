@@ -1,7 +1,27 @@
-import { boardEl, playerListContainer, playerListUl, playerListGameId, playerNameDisplay, boardName, targetLabel, guideModal, guideButton, guideSpan } from './dom.js';
+import { boardEl, playerListContainer, playerListUl, playerListGameId, playerNameDisplay, boardName, targetLabel, guideModal, guideButton, guideSpan, lobby, game, roundTimerLabel, hourglassLabel } from './dom.js';
 import { WALLS } from './quadrantData.js';
 import { gameInfo, playerInfo } from './state.js';
-import { lobby, game, roundTimerLabel, hourglassLabel } from './dom.js';
+import { sendSocketMessage } from './network.js';
+
+export const finishDemonstrationButton = document.createElement('button');
+finishDemonstrationButton.id = 'finish-demonstration-button';
+finishDemonstrationButton.textContent = 'Finish Demonstration';
+finishDemonstrationButton.hidden = true;
+if (game) game.appendChild(finishDemonstrationButton);
+
+finishDemonstrationButton.addEventListener('click', () => {
+  sendSocketMessage("finish_demonstration", {});
+  finishDemonstrationButton.hidden = true;
+});
+
+window.addEventListener('demonstration_started_event', () => {
+  if (gameInfo.demonstrating_player_id === playerInfo.player_id) {
+    finishDemonstrationButton.hidden = false;
+    alert("It's your turn to demonstrate your solution!");
+  } else {
+    finishDemonstrationButton.hidden = true;
+  }
+});
 export function renderPlayerList(gameInfo) {
   if (!gameInfo) {
     if (playerListContainer) playerListContainer.hidden = true;
@@ -98,9 +118,28 @@ export function renderChips() {
   }
 }
 
+export function renderGoalChipLabel() {
+  if (!targetLabel) return;
+  if (!gameInfo.goal_chip) {
+    targetLabel.textContent = '';
+    return;
+  }
+  targetLabel.className = `tooltip chip-${gameInfo.goal_chip.color}`;
+  const tooltipText = document.createElement('span');
+  tooltipText.className = 'tooltiptext';
+  let char = '';
+  if (gameInfo.goal_chip.symbol === 'circle') char = '●';
+  else if (gameInfo.goal_chip.symbol === 'star') char = '★';
+  else if (gameInfo.goal_chip.symbol === 'cog') char = '⚙';
+  else if (gameInfo.goal_chip.symbol === 'pentagon') char = '⬟';
+  targetLabel.textContent = char;
+  tooltipText.textContent = `Ziel: ${gameInfo.goal_chip.symbol} mit Farbe ${gameInfo.goal_chip.color}`;
+  targetLabel.appendChild(tooltipText);
+}
+
 export function startRound() {
   boardName.textContent = 'Individuelles Brett';
-  targetLabel.textContent = gameInfo.goal_chip ? gameInfo.goal_chip.color : '';
+  renderGoalChipLabel();
   roundTimer();
   renderBoard(gameInfo.board);
   renderChips();

@@ -1,8 +1,15 @@
 import { gameInfo, playerInfo } from './state.js';
-import { renderPlayerList, renderPlayerName, startRound, renderBidList, hourglassTimer } from './ui.js';
-import { show } from './ui.js';
+import { renderPlayerList, renderPlayerName, startRound, renderBidList, hourglassTimer, show, renderRobots } from './ui.js';
 
 let ws = null;
+
+export function sendSocketMessage(type, payload) {
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify({ type, payload }));
+  } else {
+    console.warn('Cannot send WS message: websocket not open', type);
+  }
+}
 
 export function handleNotificationMessage(message) {
   console.log('Received notification:', message);
@@ -21,7 +28,6 @@ export function handleNotificationMessage(message) {
         const game = message.payload;
         console.log(`Game update: ${game.game_status}`);
         Object.assign(gameInfo, game);
-        gameInfo.roundEndAt = Date.now() + (game.timer_duration || 60) * 1000;
         if (game.game_status === 1) {
           renderPlayerName();
           startRound();
@@ -39,6 +45,47 @@ export function handleNotificationMessage(message) {
         hourglassTimer();
         renderBidList(gameInfo);
       }
+      break;
+    case 'bidding_ended':
+      if (message.payload) {
+        const game = message.payload;
+        console.log(`Game update: ${game.bids}`);
+        // TODO start local timer and show bid info in UI
+        Object.assign(gameInfo, game);
+        hourglassTimer();
+        renderBidList(gameInfo);
+      }
+      break;
+    case 'timer_ended':
+      console.log('Timer ended update');
+      break;
+    case 'demonstration_started':
+      console.log('Demonstration started', message.payload);
+      gameInfo.demonstrating_player_id = message.payload.player_id;
+      if (message.payload.robots) {
+        gameInfo.robots = message.payload.robots;
+        renderRobots();
+      }
+      window.dispatchEvent(new Event('demonstration_started_event'));
+      break;
+    case 'robot_moved':
+      const move = message.payload;
+      if (playerInfo.player_id !== gameInfo.demonstrating_player_id) {
+        const robot = gameInfo.robots.find(r => r.id === move.robot_id || r.color === move.robot_id);
+        if (robot) {
+          robot.x = move.newX;
+          robot.y = move.newY;
+          renderRobots();
+        }
+      }
+      break;
+    case 'demonstration_success':
+      console.log('Demonstration success', message.payload);
+      alert('Demonstration succesful! Chip awarded.');
+      break;
+    case 'demonstration_failed':
+      console.log('Demonstration failed', message.payload);
+      alert('Demonstration failed! ' + (message.payload.message || 'Next player...'));
       break;
     default:
       break;

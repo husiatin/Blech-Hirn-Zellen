@@ -24,7 +24,26 @@ export class Board {
 }
 
 export class GameInfo {
-  constructor(game_id, player_count, game_master_id, player_list, board, game_status, bids, is_hourglass_running, hourglass_duration, is_round_timer_running, round_timer_duration, robots, active_robot_id, goal_chip, chips) {
+  constructor(
+    game_id,
+    player_count,
+    game_master_id,
+    player_list,
+    board,
+    game_status,
+    bids,
+    is_hourglass_running,
+    hourglass_duration,
+    is_round_timer_running,
+    round_timer_duration,
+    robots,
+    active_robot_id,
+    goal_chip,
+    chips,
+    demonstrating_player_id,
+    demonstration_moves,
+    original_robots
+  ) {
     this.game_id = game_id;
     this.player_count = player_count;
     this.game_master_id = game_master_id;
@@ -40,6 +59,9 @@ export class GameInfo {
     this.active_robot_id = active_robot_id;
     this.goal_chip = goal_chip;
     this.chips = chips;
+    this.demonstrating_player_id = demonstrating_player_id;
+    this.demonstration_moves = demonstration_moves;
+    this.original_robots = original_robots;
   }
 }
 
@@ -67,11 +89,11 @@ export const Symbol = Object.freeze({
   PENTAGON: 'pentagon'
 });
 
-export class GameStatus {
-  LOBBY = 0;
-  STARTED = 1;
-  ENDED = 2;
-}
+export const GameStatus = Object.freeze({
+  LOBBY: 0,
+  STARTED: 1,
+  ENDED: 2
+});
 
 export const gameInfo = new GameInfo(
   "",
@@ -93,6 +115,9 @@ export const gameInfo = new GameInfo(
   ],
   'red',
   new Chip(12, 3, 'red', Symbol.CIRCLE),
+  [],
+  null,
+  [],
   []
 );
 

@@ -93,7 +93,8 @@ async def start_game(game_id: str, game_info: Game):
     game.goal_chip = game_info.goal_chip
     game.chips = game_info.chips
     game.game_status = game_info.game_status
-    game.start_round_timer(game.on_timer_end)
+    game.pick_goal_chip()
+    game.start_round_timer()
     await manager.broadcast(game_id, {"type": "game_started", "payload": game.dict()})
     return {"Game": "Started"}
 
@@ -123,6 +124,6 @@ async def make_bid(game_id: str, bid: Bid):
     if player is None:
         return {"Wrong": "Player"}
     game.bids.append(bid)
-    game.start_hourglass_timer(game.on_timer_end)
+    game.start_hourglass_timer()
     await manager.broadcast(game_id, {"type": "bid_made", "payload": game.dict()})
     return {"Bid": "accepted"}

@@ -1,6 +1,7 @@
-import { gameInfo } from './state.js';
+import { gameInfo, playerInfo } from './state.js';
 import { WALLS } from './quadrantData.js';
 import { renderRobots } from './ui.js';
+import { sendSocketMessage } from './network.js';
 
 export function isOccupied(x, y) {
   const activeId = gameInfo.active_robot_id;
@@ -8,9 +9,15 @@ export function isOccupied(x, y) {
 }
 
 export function slide(dx, dy) {
+  if (gameInfo.demonstrating_player_id && gameInfo.demonstrating_player_id !== playerInfo.player_id) {
+    return; // block spectators from moving robots
+  }
+
   const activeRobot = gameInfo.robots.find(r => (r.id || r.color) === gameInfo.active_robot_id);
   if (!activeRobot) return;
 
+  const startX = activeRobot.x;
+  const startY = activeRobot.y;
   let moved = false;
   while (true) {
     const currentX = activeRobot.x;
@@ -37,7 +44,18 @@ export function slide(dx, dy) {
     activeRobot.y = nextY;
     moved = true;
   }
-  if (moved) renderRobots();
+  if (moved) {
+    renderRobots();
+    if (gameInfo.demonstrating_player_id === playerInfo.player_id) {
+      sendSocketMessage("robot_moved", {
+        robot_id: activeRobot.id || activeRobot.color,
+        startX: startX,
+        startY: startY,
+        newX: activeRobot.x,
+        newY: activeRobot.y
+      });
+    }
+  }
 }
 
 function getRandomInt(min, max) {

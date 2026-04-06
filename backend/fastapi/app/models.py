@@ -15,6 +15,7 @@ class GameStatus(Enum):
 
 
 class Move(BaseModel):
+    robot_id: str
     startX: int
     startY: int
     newX: int
