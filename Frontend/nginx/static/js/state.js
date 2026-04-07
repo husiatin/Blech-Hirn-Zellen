@@ -1,5 +1,6 @@
 import { BOARD_SIZE } from './constants.js';
 
+// Basic game metadata mirrored from backend responses.
 export class GameInfo {
   constructor (game_id, player_count, game_master_id, player_list, board, game_status, bids, is_timer_running, timer_duration) {
     this.game_id = game_id;
@@ -14,6 +15,7 @@ export class GameInfo {
   }
 }
 
+// Local player identity/state.
 export class Player {
   constructor(player_id, player_name, moves) {
     this.player_id = player_id;
@@ -22,6 +24,7 @@ export class Player {
   }
 }
 
+// Chip model used for target visualization.
 export class Chip {
     constructor(color, symbol, x, y) {
         this.color = color;
@@ -31,6 +34,7 @@ export class Chip {
     }
 }
 
+// Kept as a class to match earlier project style.
 export class Color {
     RED = '#d44';
     BLUE = '#44d';
@@ -42,19 +46,19 @@ export class Color {
 export const state = {
   BOARD_SIZE,
   game: {
+    // Round/UI settings.
     timerSeconds: 60,
     playerName: '',
-    robots: [
-      { id: 'red',    color: Color.RED, x: 1, y: 1 },
-      { id: 'blue',   color: Color.BLUE, x: 14, y: 2 },
-      { id: 'green',  color: Color.GREEN, x: 6, y: 13 },
-      { id: 'yellow', color: Color.YELLOW, x: 13, y: 14 },
-    ],
-    activeRobotId: 'red',
-    target: { color: 'Rot', x: 12, y: 3 },
+    // Dynamic entities loaded from backend board preset.
+    robots: [],
+    activeRobotId: null,
+    target: null,
+    targets: [],
     chips: [],
   },
+  // Board encoded with wall bit masks.
   finalBoardData: Array(BOARD_SIZE).fill(0).map(() => Array(BOARD_SIZE).fill(0)),
+  // Lobby + identity + timer runtime data.
   gameInfo: null,
   playerInfo: null,
   roundEndAt: null,

@@ -1,15 +1,19 @@
 import { state } from './state.js';
-import { WALLS } from './quadrantData.js';
+import { WALLS } from './constants.js';
 import { renderRobots } from './ui.js';
 
+// Check if another robot is already on a cell.
 export function isOccupied(x, y) {
   const activeId = state.game.activeRobotId;
   return state.game.robots.some(robot => robot.id !== activeId && robot.x === x && robot.y === y);
 }
 
+// Ricochet-style movement: keep moving in a direction until blocked.
 export function slide(dx, dy) {
   const activeRobot = state.game.robots.find(r => r.id === state.game.activeRobotId);
   if (!activeRobot) return;
+  const boardSize = state.finalBoardData.length;
+  if (!boardSize) return;
 
   let moved = false;
   while (true) {
@@ -18,11 +22,12 @@ export function slide(dx, dy) {
     const nextX = currentX + dx;
     const nextY = currentY + dy;
 
-    if (nextX < 0 || nextY < 0 || nextX >= state.BOARD_SIZE || nextY >= state.BOARD_SIZE) break;
+    if (nextX < 0 || nextY < 0 || nextX >= boardSize || nextY >= boardSize) break;
 
     const currentWalls = state.finalBoardData[currentY][currentX];
     const nextWalls = state.finalBoardData[nextY][nextX];
 
+    // Walls can be encoded in current cell or neighboring cell.
     let wallInTheWay = false;
     if (dx === 1 && (currentWalls & WALLS.E || nextWalls & WALLS.W)) wallInTheWay = true;
     else if (dx === -1 && (currentWalls & WALLS.W || nextWalls & WALLS.E)) wallInTheWay = true;
@@ -37,5 +42,6 @@ export function slide(dx, dy) {
     activeRobot.y = nextY;
     moved = true;
   }
+  // Repaint only if anything changed.
   if (moved) renderRobots();
 }

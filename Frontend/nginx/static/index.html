@@ -2,13 +2,23 @@
 <html lang="de">
   <head>
     <meta charset="utf-8">
-    <title>Ricochet Robots – Frontend Prototyp</title>
+    <title>Blech-Hirn-Zellen</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
   </head>
   <body>
     <header>
-      <h1>Ricochet Robots</h1>
+      <div id="container">
+        <h1>Blech-Hirn-Zellen</h1>
+        <button id="guide-btn" class="guide-btn"><i class="fa fa-question"></i></button>
+      </div>
+      <div id="guide-modal" class="modal">
+        <div class="modal-content">
+          <span class="close">&times;</span>
+          <iframe src="guide.html" class="guide-html-display" title="Guide Display"></iframe>
+        </div>
+      </div>
       <h3 id="player-name-display"></h3>
       <nav>
         <a href="#lobby">Lobby</a>
@@ -21,38 +31,48 @@
         <h2>Lobby und Konfiguration</h2>
 
         <form id="board-config-form"> 
-          <h3>1. Brett zusammenstellen</h3>
-          <p>Wähle für jeden der vier Blöcke die Seite A oder B.</p>
-          
-          <fieldset>
-            <legend>Block 1 (oben links)</legend>
-            <label><input type="radio" name="block1_side" value="A" checked> Seite A</label>
-            <label><input type="radio" name="block1_side" value="B"> Seite B</label>
-          </fieldset>
-          <fieldset>
-            <legend>Block 2 (oben rechts)</legend>
-            <label><input type="radio" name="block2_side" value="A" checked> Seite A</label>
-            <label><input type="radio" name="block2_side" value="B"> Seite B</label>
-          </fieldset>
-          <fieldset>
-            <legend>Block 3 (unten links)</legend>
-            <label><input type="radio" name="block3_side" value="A" checked> Seite A</label>
-            <label><input type="radio" name="block3_side" value="B"> Seite B</label>
-          </fieldset>
-          <fieldset>
-            <legend>Block 4 (unten rechts)</legend>
-            <label><input type="radio" name="block4_side" value="A" checked> Seite A</label>
-            <label><input type="radio" name="block4_side" value="B"> Seite B</label>
-          </fieldset>
-
-          <h3>2. Spiel-Einstellungen</h3>
+          <h3>1. Spiel-Einstellungen</h3>
           <label>
             Timer (Sekunden):
             <input name="timer" type="number" min="10" max="300" value="60">
           </label>
           <label>
+            Sanduhr (Sekunden):
+            <input name="hourglass" type="number" min="30" max="300" value="60">
+          </label>
+          <label>
             Dein Name:
             <input name="playerName" type="text" placeholder="Spielername" required>
+          </label>
+
+          <h3>2. Quadranten-Auswahl</h3>
+          <label>
+            Block 1:
+            <select name="block1_side">
+              <option value="A" selected>Seite A</option>
+              <option value="B">Seite B</option>
+            </select>
+          </label>
+          <label>
+            Block 2:
+            <select name="block2_side">
+              <option value="A" selected>Seite A</option>
+              <option value="B">Seite B</option>
+            </select>
+          </label>
+          <label>
+            Block 3:
+            <select name="block3_side">
+              <option value="A" selected>Seite A</option>
+              <option value="B">Seite B</option>
+            </select>
+          </label>
+          <label>
+            Block 4:
+            <select name="block4_side">
+              <option value="A" selected>Seite A</option>
+              <option value="B">Seite B</option>
+            </select>
           </label>
 
           <button type="submit">Spiel starten</button>
@@ -88,7 +108,8 @@
         <div id="status">
           <span id="board-name">Individuelles Brett</span> ·
           <span>Ziel: <span id="target-label">Rot</span></span> ·
-          <span>Restzeit: <span id="timer-label">–</span></span>
+          <span>Restzeit: <span id="timer-label">–</span></span> ·
+          <span>Sanduhr: <span id="hourglass-label">–</span></span>
         </div>
 
         <div id="bids-container">
@@ -107,7 +128,7 @@
       </section>
     </main>
 
-    <!-- Die Skript-Einbindung (JavaScript Modules) -->
-    <script type="module" src="js/main.js"></script>
+    <!-- Bump ?v=... Please increment, whenever JS module files/import paths are added, removed, renamed, or moved to avoid stale browser module cache. -->
+    <script type="module" src="js/main.js?v=20260407-1"></script>
   </body>
 </html>

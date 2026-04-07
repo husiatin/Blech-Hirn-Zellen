@@ -1,8 +1,9 @@
-import { boardEl, playerListContainer, playerListUl, playerListGameId, playerNameDisplay, boardName, targetLabel } from './dom.js';
-import { WALLS } from './quadrantData.js';
+import { boardEl, playerListContainer, playerListUl, playerListGameId, playerNameDisplay, boardName, targetLabel, guideModal, guideButton, guideSpan } from './dom.js';
+import { WALLS } from './constants.js';
 import { state } from './state.js';
 import { lobby, game } from './dom.js';
 
+// Render/update the list of players in the lobby.
 export function renderPlayerList(gameInfo) {
   if (!gameInfo) {
     if (playerListContainer) playerListContainer.hidden = true;
@@ -35,6 +36,7 @@ export function renderPlayerList(gameInfo) {
   }
 }
 
+// Show current local player name in the header.
 export function renderPlayerName() {
   if (!playerNameDisplay) return;
   if (!state.playerInfo || !state.playerInfo.player_name) {
@@ -45,14 +47,19 @@ export function renderPlayerName() {
   playerNameDisplay.hidden = false;
 }
 
+// Draw a full board grid from backend wall data.
 export function renderBoard(boardData) {
+  if (!Array.isArray(boardData) || !boardData.length) return;
+  const boardSize = boardData.length;
+  boardEl.style.setProperty('--cells', String(boardSize));
   boardEl.innerHTML = '';
-  for (let y = 0; y < state.BOARD_SIZE; y++) {
-    for (let x = 0; x < state.BOARD_SIZE; x++) {
+  for (let y = 0; y < boardSize; y++) {
+    for (let x = 0; x < boardSize; x++) {
       const cell = document.createElement('div');
       cell.className = 'cell';
       cell.dataset.x = String(x); cell.dataset.y = String(y);
       const wallValue = boardData[y][x];
+      // Add directional wall classes from the bitmask.
       if (wallValue & WALLS.N) cell.classList.add('wall-north');
       if (wallValue & WALLS.E) cell.classList.add('wall-east');
       if (wallValue & WALLS.S) cell.classList.add('wall-south');
@@ -62,6 +69,7 @@ export function renderBoard(boardData) {
   }
 }
 
+// Paint all robots on top of board cells.
 export function renderRobots() {
   document.querySelectorAll('[class*="robot-"], .selected').forEach(c => {
     c.className = c.className.replace(/robot-\w+/g, '').replace('selected', '').trim();
@@ -78,18 +86,47 @@ export function renderRobots() {
   }
 }
 
+// Draw chip symbols (target icons) on matching cells.
 export function renderChips() {
-    
+  document.querySelectorAll('.chip').forEach((chip) => chip.remove());
+  const chips = Array.isArray(state.game.chips) ? state.game.chips : [];
+  if (!chips.length) return;
+
+  const symbolToChar = (symbol) => {
+    switch (String(symbol || '').toLowerCase()) {
+      case 'circle': return '●';
+      case 'star': return '★';
+      case 'cog': return '⚙';
+      case 'pentagon': return '⬟';
+      default: return '';
+    }
+  };
+
+  for (const chip of chips) {
+    const x = Number(chip.x);
+    const y = Number(chip.y);
+    const cell = document.querySelector(`.cell[data-x="${x}"][data-y="${y}"]`);
+    if (!cell) continue;
+
+    const chipEl = document.createElement('div');
+    chipEl.className = `chip chip-${String(chip.color || '').toLowerCase()}`;
+    chipEl.textContent = symbolToChar(chip.symbol);
+    chipEl.title = `${chip.color || 'chip'} ${chip.symbol || ''}`.trim();
+    cell.appendChild(chipEl);
+  }
 }
 
+// Start round UI: title, target label, timer, board + entities.
 export function startRound() {
   boardName.textContent = 'Individuelles Brett';
-  targetLabel.textContent = state.game.target.color;
+  targetLabel.textContent = state.game.target?.color || '–';
   state.roundEndAt = Date.now() + state.game.timerSeconds * 1000;
   renderBoard(state.finalBoardData);
+  renderChips();
   renderRobots();
 }
 
+// Simple hash-based view switch between lobby and game.
 export function show(view) {
   // view is 'lobby' or 'game' or others
   
@@ -97,6 +134,7 @@ export function show(view) {
   if (game) game.hidden = (view !== 'game');
 }
 
+// Render all submitted bids for the current game.
 export function renderBidList(gameInfo) {
     const ul = document.getElementById('bids-list');
     if (!ul) return;
@@ -111,3 +149,22 @@ export function renderBidList(gameInfo) {
         ul.appendChild(li);
     }
 }
+
+// Guide modal open/close handlers.
+if (guideButton && guideModal) {
+  guideButton.onclick = function () {
+    guideModal.style.display = 'block';
+  };
+}
+
+if (guideSpan && guideModal) {
+  guideSpan.onclick = function () {
+    guideModal.style.display = 'none';
+  };
+}
+
+window.addEventListener('click', (event) => {
+  if (guideModal && event.target === guideModal) {
+    guideModal.style.display = 'none';
+  }
+});
