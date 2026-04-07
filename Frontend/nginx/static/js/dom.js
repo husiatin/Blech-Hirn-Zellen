@@ -1,4 +1,5 @@
-// Centralized DOM element references
+// Centralized DOM element references.
+// Keeping these in one file avoids repeated querySelector/getElementById calls.
 export const lobbyView = document.getElementById('lobby-view');
 export const gameView = document.getElementById('game-view');
 export const boardEl = document.getElementById('board');
@@ -15,6 +16,9 @@ export const boardConfigForm = document.getElementById('board-config-form');
 export const lobby = document.getElementById('lobby-view');
 export const game = document.getElementById('game-view');
 export const makeBet = document.getElementById('make-bet');
-export var guideModal = document.getElementById("guide-modal");
-export var guideButton = document.getElementById("guide-btn");
-export var guideSpan = document.getElementsByClassName("close")[0];
+// Guide modal controls (optional UI).
+export const guideModal = document.getElementById('guide-modal');
+export const guideButton = document.getElementById('guide-btn');
+export const guideSpan = document.getElementsByClassName('close')[0];
+// Separate label for hourglass countdown in the game status area.
+export const hourglassLabel = document.getElementById('hourglass-label');

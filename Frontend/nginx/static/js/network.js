@@ -2,8 +2,10 @@ import { state, Player, GameInfo } from './state.js';
 import { renderPlayerList, renderPlayerName, startRound, renderBidList } from './ui.js';
 import { show } from './ui.js';
 
+// Single websocket instance for game notifications.
 let ws = null;
 
+// Handle server events and sync local UI/state.
 export function handleNotificationMessage(message) {
   console.log('Received notification:', message);
   switch (message.type) {
@@ -45,6 +47,7 @@ export function handleNotificationMessage(message) {
   }
 }
 
+// Start game request (only game master should trigger this).
 export async function sendStartGameToBackend() {
   try {
     if (!state.gameInfo || !state.gameInfo.game_id || !state.playerInfo || !state.playerInfo.player_id) {
@@ -55,7 +58,7 @@ export async function sendStartGameToBackend() {
       console.warn('Only the game master can start the game');
       return;
     }
-    const response = await fetch(`http://localhost/api/games/${encodeURIComponent(state.gameInfo.game_id)}/start?game_master_id=${encodeURIComponent(state.playerInfo.player_id)}`, {
+    const response = await fetch(`/api/games/${encodeURIComponent(state.gameInfo.game_id)}/start?game_master_id=${encodeURIComponent(state.playerInfo.player_id)}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" }
     });
@@ -69,6 +72,7 @@ export async function sendStartGameToBackend() {
   }
 }
 
+// Open/replace websocket connection for one game ID.
 export function connectNotificationWebsocket(gameId) {
   if (!state.playerInfo || !state.playerInfo.player_id) {
     console.warn('Cannot open websocket: missing playerInfo');
@@ -94,8 +98,9 @@ export function connectNotificationWebsocket(gameId) {
   ws.addEventListener('error', (err) => { console.error('WebSocket error', err); });
 }
 
+// Create a game using current player and generated board.
 export async function createGameRequest(playerInfo, finalBoardData) {
-  const response = await fetch("http://localhost/api/games", {
+  const response = await fetch("/api/games", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ player_info: playerInfo, board_configuration: { board_size: state.BOARD_SIZE, board_data: finalBoardData } })
@@ -107,8 +112,30 @@ export async function createGameRequest(playerInfo, finalBoardData) {
   return response.json();
 }
 
+// Load a backend-generated playable board based on selected quadrant sides.
+export async function fetchPlayableBoardRequest(presetName = 'default', quadrantSides = {}) {
+  const params = new URLSearchParams();
+  if (quadrantSides.block1) params.set('block1_side', String(quadrantSides.block1));
+  if (quadrantSides.block2) params.set('block2_side', String(quadrantSides.block2));
+  if (quadrantSides.block3) params.set('block3_side', String(quadrantSides.block3));
+  if (quadrantSides.block4) params.set('block4_side', String(quadrantSides.block4));
+  const query = params.toString();
+  const url = `/api/boards/${encodeURIComponent(presetName)}/playable${query ? `?${query}` : ''}`;
+
+  const response = await fetch(url, {
+    method: 'GET',
+    headers: { 'Content-Type': 'application/json' }
+  });
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`Load board failed: ${response.status} ${text}`);
+  }
+  return response.json();
+}
+
+// Join an existing game by ID.
 export async function joinGameRequest(enteredGameId, playerInfo) {
-  const response = await fetch(`http://localhost/api/games/${enteredGameId}/players`, {
+  const response = await fetch(`/api/games/${enteredGameId}/players`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(playerInfo)
@@ -120,8 +147,9 @@ export async function joinGameRequest(enteredGameId, playerInfo) {
   return response.json();
 }
 
+// Submit a bid (number of moves) for the active game.
 export async function sendBidRequest(gameId, playerId, bid) {
-  const response = await fetch(`http://localhost/api/games/${gameId}/bids`, {
+  const response = await fetch(`/api/games/${gameId}/bids`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ player_id: playerId, number_of_moves: bid })
