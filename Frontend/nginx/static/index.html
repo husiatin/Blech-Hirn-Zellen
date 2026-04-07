@@ -30,6 +30,12 @@
       <section id="lobby-view" aria-label="Lobby">
         <h2>Lobby und Konfiguration</h2>
 
+        <div id="lobby-mode-select" class="lobby-mode-select">
+          <button id="show-create-flow" type="button" class="mode-card">Spiel erstellen</button>
+          <button id="show-join-flow" type="button" class="mode-card">Spiel beitreten</button>
+        </div>
+
+        <div id="create-flow" hidden>
         <form id="board-config-form"> 
           <h3>1. Spiel-Einstellungen</h3>
           <label>
@@ -75,8 +81,7 @@
             </select>
           </label>
 
-          <button type="submit">Spiel starten</button>
-          <button id="create-game" type="button">Create game</button>
+          <button id="create-game" type="button">Board erstellen</button>
           <label id="game-id-display"></label>
           
           <div id="player-list" hidden>
@@ -85,14 +90,17 @@
             <ul id="player-list-ul"></ul>
           </div>
           
-          <h3>3. Spiel beitreten</h3>
+        </form>
+        </div>
+
+        <div id="join-flow" hidden>
+          <h3>Spiel beitreten</h3>
           <label>
             Gebe hier die Spiel-Id des Spiels ein dem du beitreten möchtest:
-            <input name="join-via-game-id" type="text" placeholder="Spiel-Id">
+            <input id="join-game-id-input" name="join-via-game-id" type="text" placeholder="Spiel-Id">
           </label>
-
           <button id="join-game" type="button">Spiel beitreten</button>
-        </form>
+        </div>
 
         <p id="lobby-msg"></p>
       </section>
@@ -129,6 +137,107 @@
     </main>
 
     <!-- Bump ?v=... Please increment, whenever JS module files/import paths are added, removed, renamed, or moved to avoid stale browser module cache. -->
-    <script type="module" src="js/main.js?v=20260407-1"></script>
+    <script>
+      // Robust module bootstrap with explicit error capture.
+      // This gives us a concrete error string when the app module cannot start.
+      window.__bhzMainScriptError = window.__bhzMainScriptError || '';
+      (async function bootMainModule() {
+        if (window.location.protocol === 'file:') {
+          window.__bhzMainScriptError = 'Frontend was opened as file:// . Please open http://127.0.0.1:8080 instead.';
+          return;
+        }
+        try {
+          await import('/js/main.js?v=20260407-15');
+        } catch (err) {
+          window.__bhzMainScriptError = String(err && (err.message || err)) || 'main module failed to load';
+        }
+      })();
+    </script>
+    <script>
+      // Small safety fallback:
+      // If module boot fails in browser (stale cache/import error), keep basic lobby and guide controls usable.
+      (function () {
+        window.__bhzMainScriptError = window.__bhzMainScriptError || '';
+        window.addEventListener('error', (event) => {
+          const msg = String(event?.message || event?.error?.message || 'unknown error');
+          window.__bhzMainScriptError = msg;
+        });
+        window.addEventListener('unhandledrejection', (event) => {
+          const msg = String(event?.reason?.message || event?.reason || 'promise rejection');
+          window.__bhzMainScriptError = msg;
+        });
+
+        const lobbyMsg = document.getElementById('lobby-msg');
+        const modeSelect = document.getElementById('lobby-mode-select');
+        const createFlow = document.getElementById('create-flow');
+        const joinFlow = document.getElementById('join-flow');
+        const showCreate = document.getElementById('show-create-flow');
+        const showJoin = document.getElementById('show-join-flow');
+        const createGameBtn = document.getElementById('create-game');
+        const guideBtn = document.getElementById('guide-btn');
+        const guideModal = document.getElementById('guide-modal');
+        const guideClose = document.querySelector('#guide-modal .close');
+
+        const setMode = (mode) => {
+          if (!modeSelect || !createFlow || !joinFlow) return;
+          if (mode === 'create') {
+            modeSelect.hidden = true;
+            createFlow.hidden = false;
+            joinFlow.hidden = true;
+            return;
+          }
+          if (mode === 'join') {
+            modeSelect.hidden = true;
+            createFlow.hidden = true;
+            joinFlow.hidden = false;
+            return;
+          }
+          modeSelect.hidden = false;
+          createFlow.hidden = true;
+          joinFlow.hidden = true;
+        };
+
+        if (showCreate) {
+          showCreate.addEventListener('click', () => setMode('create'));
+        }
+        if (showJoin) {
+          showJoin.addEventListener('click', () => setMode('join'));
+        }
+        if (createGameBtn) {
+          createGameBtn.addEventListener('click', () => {
+            if (!window.__bhzMainBooted && lobbyMsg) {
+              const err = window.__bhzMainScriptError ? ` Fehler: ${window.__bhzMainScriptError}` : '';
+              lobbyMsg.textContent = `Frontend noch nicht voll geladen.${err} Bitte Hard Reload (Cmd+Shift+R) und erneut versuchen.`;
+              return;
+            }
+            if (window.__bhzMainBooted && createGameBtn.dataset.bound !== 'yes' && lobbyMsg) {
+              lobbyMsg.textContent = 'Create-Handler fehlt. Bitte Hard Reload ausfuehren.';
+            }
+          });
+        }
+        if (guideBtn && guideModal) {
+          guideBtn.addEventListener('click', () => {
+            guideModal.style.display = 'block';
+          });
+        }
+        if (guideClose && guideModal) {
+          guideClose.addEventListener('click', () => {
+            guideModal.style.display = 'none';
+          });
+        }
+        if (guideModal) {
+          window.addEventListener('click', (event) => {
+            if (event.target === guideModal) guideModal.style.display = 'none';
+          });
+        }
+
+        setTimeout(() => {
+          if (!window.__bhzMainBooted && lobbyMsg) {
+            const err = window.__bhzMainScriptError ? ` Fehler: ${window.__bhzMainScriptError}` : '';
+            lobbyMsg.textContent = `Fallback aktiv: Basis-UI laeuft, aber main.js ist nicht gestartet.${err}`;
+          }
+        }, 1200);
+      })();
+    </script>
   </body>
 </html>

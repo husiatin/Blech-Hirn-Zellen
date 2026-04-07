@@ -99,11 +99,15 @@ export function connectNotificationWebsocket(gameId) {
 }
 
 // Create a game using current player and generated board.
-export async function createGameRequest(playerInfo, finalBoardData) {
+export async function createGameRequest(playerInfo, finalBoardData, playablePayload = null) {
+  const boardConfiguration = { board_data: finalBoardData };
+  if (playablePayload && typeof playablePayload === 'object') {
+    boardConfiguration.playable_payload = playablePayload;
+  }
   const response = await fetch("/api/games", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ player_info: playerInfo, board_configuration: { board_size: state.BOARD_SIZE, board_data: finalBoardData } })
+    body: JSON.stringify({ player_info: playerInfo, board_configuration: boardConfiguration })
   });
   if (!response.ok) {
     const text = await response.text();

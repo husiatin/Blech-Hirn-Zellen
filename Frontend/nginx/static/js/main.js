@@ -1,8 +1,11 @@
-import { boardConfigForm, createGame, joinGame, makeBet } from './dom.js';
+import { boardConfigForm, createGame, joinGame, joinGameIdInput, lobbyModeSelect, showCreateFlow, showJoinFlow, createFlow, joinFlow, makeBet } from './dom.js';
 import { state, Player, GameInfo } from './state.js';
 import { renderPlayerList, renderPlayerName, startRound, show, renderBidList } from './ui.js';
 import { slide } from './robots.js';
-import { createGameRequest, fetchPlayableBoardRequest, joinGameRequest, connectNotificationWebsocket, sendStartGameToBackend, handleNotificationMessage, sendBidRequest } from './network.js';
+import { createGameRequest, fetchPlayableBoardRequest, joinGameRequest, connectNotificationWebsocket, handleNotificationMessage, sendBidRequest } from './network.js';
+
+// Boot flag used by index.html fallback script.
+window.__bhzMainBooted = true;
 
 // Shared lobby status label (we write progress/errors here).
 const lobbyMsgEl = document.getElementById('lobby-msg');
@@ -23,26 +26,32 @@ function applyPlayableBoardPayload(payload) {
   if (!payload || !Array.isArray(payload.board_data) || !payload.board_data.length) {
     throw new Error('Playable board payload is invalid');
   }
+  const hasOwn = (key) => Object.prototype.hasOwnProperty.call(payload, key);
   state.finalBoardData = payload.board_data;
 
   // Keep robots normalized as numbers/strings to avoid render bugs.
-  if (Array.isArray(payload.robots) && payload.robots.length) {
+  // Important: if robots are not part of this payload, keep current robot state.
+  if (Array.isArray(payload.robots)) {
     state.game.robots = payload.robots.map((robot) => ({
       id: String(robot.id),
       x: Number(robot.x),
       y: Number(robot.y),
     }));
-    state.game.activeRobotId = state.game.robots[0].id;
-  } else {
+    state.game.activeRobotId = state.game.robots.length ? state.game.robots[0].id : null;
+  } else if (hasOwn('robots')) {
     state.game.robots = [];
     state.game.activeRobotId = null;
   }
 
+  // Keep existing chips when this payload does not provide chips.
   if (Array.isArray(payload.chips)) {
     state.game.chips = payload.chips;
+  } else if (hasOwn('chips')) {
+    state.game.chips = [];
   }
 
   // Keep full target list (for board visuals) and one active target (for status).
+  // If targets are not included, preserve previous target state.
   if (Array.isArray(payload.targets)) {
     state.game.targets = payload.targets.map((target) => ({
       id: target.id,
@@ -50,7 +59,7 @@ function applyPlayableBoardPayload(payload) {
       x: Number(target.x),
       y: Number(target.y),
     }));
-  } else {
+  } else if (hasOwn('targets')) {
     state.game.targets = [];
   }
 
@@ -75,7 +84,9 @@ function applyPlayableBoardPayload(payload) {
     return;
   }
 
-  state.game.target = null;
+  if (hasOwn('target') || hasOwn('targets')) {
+    state.game.target = null;
+  }
 }
 
 // Read selected side (A/B) for each quadrant from the form.
@@ -128,24 +139,44 @@ window.addEventListener('load', () => {
   }
 });
 
-// Board config form: currently used to start the already created game.
-if (boardConfigForm) {
-  boardConfigForm.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const formData = new FormData(e.target);
-    state.game.timerSeconds = Number(formData.get('timer'));
-    state.game.playerName = String(formData.get('playerName') || 'Spieler 1');
-    if (state.playerInfo) state.playerInfo.player_name = state.game.playerName;
-    renderPlayerName();
-    if (!state.gameInfo) {
-      const lobbyMsg = document.getElementById('lobby-msg');
-      if (lobbyMsg) lobbyMsg.textContent = 'Bitte zuerst mit "Create game" ein Spielbrett erstellen.';
-      return;
-    }
-    await sendStartGameToBackend();
+function setLobbyMode(mode) {
+  if (!lobbyModeSelect || !createFlow || !joinFlow) return;
+  if (mode === 'create') {
+    lobbyModeSelect.hidden = true;
+    createFlow.hidden = false;
+    joinFlow.hidden = true;
+    return;
+  }
+  if (mode === 'join') {
+    lobbyModeSelect.hidden = true;
+    createFlow.hidden = true;
+    joinFlow.hidden = false;
+    return;
+  }
+  lobbyModeSelect.hidden = false;
+  createFlow.hidden = true;
+  joinFlow.hidden = true;
+}
+
+setLobbyMode('select');
+if (showCreateFlow) {
+  showCreateFlow.addEventListener('click', () => {
+    setLobbyMode('create');
+    if (lobbyMsgEl) lobbyMsgEl.textContent = 'Create setup geöffnet.';
   });
-} else {
-  console.warn('board-config-form element not found; submit handler not attached');
+}
+if (showJoinFlow) {
+  showJoinFlow.addEventListener('click', () => {
+    setLobbyMode('join');
+    if (lobbyMsgEl) lobbyMsgEl.textContent = 'Join setup geöffnet.';
+  });
+}
+
+// Defensive: prevent browser default GET submit from this form.
+if (boardConfigForm) {
+  boardConfigForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+  });
 }
 
 // Create game flow:
@@ -154,15 +185,18 @@ if (boardConfigForm) {
 // 3) create game in backend
 // 4) render and switch to game view
 if (createGame) {
+createGame.dataset.bound = 'yes';
 createGame.addEventListener('click', async (e) => {
   const lobbyMsg = document.getElementById('lobby-msg');
+  createGame.disabled = true;
   try {
-    if (lobbyMsg) lobbyMsg.textContent = 'Erstelle Spiel...';
+    if (lobbyMsg) lobbyMsg.textContent = '1/3 Spieler wird geladen...';
     if (!state.playerInfo || !state.playerInfo.player_id) {
       await init();
     }
     if (!state.playerInfo || !state.playerInfo.player_id) {
       if (lobbyMsg) lobbyMsg.textContent = 'Spieler konnte nicht geladen werden. Bitte Seite neu laden.';
+      createGame.disabled = false;
       return;
     }
     if (boardConfigForm) {
@@ -172,9 +206,17 @@ createGame.addEventListener('click', async (e) => {
       if (state.playerInfo) state.playerInfo.player_name = state.game.playerName;
       renderPlayerName();
     }
+    if (lobbyMsg) lobbyMsg.textContent = '2/3 Board wird geladen...';
     const selectedSides = getQuadrantSidesFromForm();
     await loadPlayablePreset('default', { quadrantSides: selectedSides });
-    const data = await createGameRequest(state.playerInfo, state.finalBoardData);
+    const playablePayloadForGame = {
+      board_data: state.finalBoardData,
+      robots: state.game.robots,
+      chips: state.game.chips,
+      targets: state.game.targets,
+    };
+    if (lobbyMsg) lobbyMsg.textContent = '3/3 Spiel wird erstellt...';
+    const data = await createGameRequest(state.playerInfo, state.finalBoardData, playablePayloadForGame);
     state.gameInfo = new GameInfo(
       data.game_id,
       data.player_count,
@@ -196,8 +238,9 @@ createGame.addEventListener('click', async (e) => {
     if (data && data.game_id) connectNotificationWebsocket(data.game_id);
     if (lobbyMsg) lobbyMsg.textContent = `Spiel erstellt. Spiel-ID: ${data.game_id}`;
   } catch (err) {
-    if (lobbyMsg) lobbyMsg.textContent = `Create game fehlgeschlagen: ${err.message || err}`;
+    if (lobbyMsg) lobbyMsg.textContent = `Spiel erstellen fehlgeschlagen: ${err.message || err}`;
     console.error(err.message || err);
+    createGame.disabled = false;
   }
 });
 } else {
@@ -207,8 +250,9 @@ createGame.addEventListener('click', async (e) => {
 // Join game flow (existing game ID from input field).
 if (joinGame) {
 joinGame.addEventListener('click', async (e) => {
+  const lobbyMsg = document.getElementById('lobby-msg');
   try {
-    const enteredGameId = document.querySelector('input[name="join-via-game-id"]').value.trim();
+    const enteredGameId = String(joinGameIdInput?.value || '').trim();
     if (!enteredGameId) return console.warn('No game id provided');
     const data = await joinGameRequest(enteredGameId, state.playerInfo);
     if (data && data.game_id) {
@@ -224,10 +268,24 @@ joinGame.addEventListener('click', async (e) => {
         data.timer_duration
       );
       renderPlayerList(state.gameInfo);
+
+      // Joiner-side board sync:
+      // Use same mapper as create-flow so all available server data is applied consistently.
+      // If join response currently only has board_data, mapper keeps existing entity state.
+      const boardPayload = data.board?.playable_payload || data.board;
+      if (boardPayload && Array.isArray(boardPayload.board_data) && boardPayload.board_data.length) {
+        applyPlayableBoardPayload(boardPayload);
+        startRound();
+        location.hash = '#game';
+        if (lobbyMsg) lobbyMsg.textContent = `Beigetreten: ${data.game_id}`;
+      } else if (lobbyMsg) {
+        lobbyMsg.textContent = 'Spiel beigetreten, aber kein Board im Join-Response gefunden.';
+      }
     }
     const gameId = data && data.game_id ? data.game_id : enteredGameId;
     connectNotificationWebsocket(gameId);
   } catch (err) {
+    if (lobbyMsg) lobbyMsg.textContent = `Join fehlgeschlagen: ${err.message || err}`;
     console.error(err.message || err);
   }
 });
@@ -312,7 +370,7 @@ function syncViewFromHash() {
   const view = location.hash.replace('#', '') || 'lobby';
   if (view === 'game' && !state.gameInfo) {
     const lobbyMsg = document.getElementById('lobby-msg');
-    if (lobbyMsg) lobbyMsg.textContent = 'Bitte zuerst "Create game" klicken, damit ein Spielbrett erzeugt wird.';
+    if (lobbyMsg) lobbyMsg.textContent = 'Bitte zuerst "Spiel erstellen" klicken, damit ein Spielbrett erzeugt wird.';
     location.hash = '#lobby';
     show('lobby');
     return;

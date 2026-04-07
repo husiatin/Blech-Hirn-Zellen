@@ -17,6 +17,27 @@ header, main {
   margin: 0 auto;
 }
 
+.lobby-mode-select {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin: 10px 0 14px;
+}
+
+.mode-card {
+  padding: 14px 12px;
+  border: 1px solid #c9c9c9;
+  border-radius: 8px;
+  background: #fff;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.mode-card:hover {
+  background: #f7f7f7;
+}
+
 /* Das Spielfeld als Grid-Container */
 #board {
   display: grid;

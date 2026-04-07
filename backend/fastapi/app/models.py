@@ -10,7 +10,7 @@ TODO roadmap:
 - Decide whether API keys should be `snake_case` only or support legacy camelCase aliases.
 """
 
-from typing import List
+from typing import Any, Dict, List
 from pydantic import BaseModel, Field
 from enum import Enum
 
@@ -59,6 +59,8 @@ class Move(BaseModel):
 class Board(BaseModel):
     # board_data is a 2D array (rows of columns) of integers representing wall flags
     board_data: List[List[int]] = Field(default_factory=list)
+    # Optional full playable payload (robots/chips/targets) persisted with the game.
+    playable_payload: Dict[str, Any] = Field(default_factory=dict)
 
 
 class Colour(Enum):
