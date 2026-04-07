@@ -93,6 +93,8 @@ async def start_game(game_id: str, game_info: Game):
     game.goal_chip = game_info.goal_chip
     game.chips = game_info.chips
     game.game_status = game_info.game_status
+    game.round_timer_duration = game_info.round_timer_duration
+    game.hourglass_duration = game_info.hourglass_duration
     game.pick_goal_chip()
     game.start_round_timer()
     await manager.broadcast(game_id, {"type": "game_started", "payload": game.dict()})

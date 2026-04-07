@@ -3,6 +3,8 @@ import { WALLS } from './quadrantData.js';
 import { gameInfo, playerInfo } from './state.js';
 import { sendSocketMessage } from './network.js';
 
+let roundTimerInterval = null;
+let hourglassInterval = null;
 export const finishDemonstrationButton = document.createElement('button');
 finishDemonstrationButton.id = 'finish-demonstration-button';
 finishDemonstrationButton.textContent = 'Finish Demonstration';
@@ -140,7 +142,6 @@ export function renderGoalChipLabel() {
 export function startRound() {
   boardName.textContent = 'Individuelles Brett';
   renderGoalChipLabel();
-  roundTimer();
   renderBoard(gameInfo.board);
   renderChips();
   renderRobots();
@@ -185,39 +186,70 @@ window.onclick = function (event) {
   }
 }
 
-// timer after bid is made and backend has responded
-export function hourglassTimer() {
-  var hourglassSec = gameInfo.hourglass_duration;
-  timer(hourglassSec, hourglassLabel);
+function formatSeconds(seconds, label) {
+  if (!label) return;
+  if (seconds <= 0) {
+    label.textContent = '0s';
+    return;
+  }
+  const minutes = Math.floor(seconds / 60);
+  if (minutes > 0) {
+    label.textContent = `${minutes} min ${seconds % 60}s`;
+  } else {
+    label.textContent = `${seconds % 60}s`;
+  }
 }
 
-//timer for max round duration -> if players take too long to find a solution the round ends
-export function roundTimer() {
-  var roundSec = gameInfo.round_timer_duration * 60;
-  timer(roundSec, roundTimerLabel);
+function createCountdown(durationSeconds, label, onExpired) {
+  let remaining = durationSeconds;
+  formatSeconds(remaining, label);
+ 
+  const id = setInterval(() => {
+    remaining--;
+    if (remaining <= 0) {
+      clearInterval(id);
+      formatSeconds(0, label);
+      if (typeof onExpired === 'function') onExpired();
+    } else {
+      formatSeconds(remaining, label);
+    }
+  }, 1000);
+ 
+  return id;
 }
 
-function timer(durationInSeconds, label) {
-  var timer = setInterval(() => {
-    if (!durationInSeconds || location.hash !== '#game') {
-      if (label) label.textContent = '–';
-      return;
-    }
+export function startRoundTimer(durationSeconds) {
+  stopRoundTimer(); // Clear any previous interval first
+  if (!roundTimerLabel) return;
+ 
+  roundTimerInterval = createCountdown(durationSeconds, roundTimerLabel, () => {
+    // The backend will send round_failed if needed; nothing to do on the
+    // frontend when the countdown hits zero other than show 0.
+  });
+}
 
-    if (label) {
-      var minutes = Math.floor(durationInSeconds / 60);
-      if (minutes > 0) {
-        label.textContent = `${minutes} min ${durationInSeconds % 60}s`;
-      }
-      else {
-        label.textContent = `${durationInSeconds % 60}s`;
-      }
-    }
+export function stopRoundTimer() {
+  if (roundTimerInterval !== null) {
+    clearInterval(roundTimerInterval);
+    roundTimerInterval = null;
+  }
+  if (roundTimerLabel) roundTimerLabel.textContent = '–';
+}
 
-    durationInSeconds--;
-    if (durationInSeconds < 0) {
-      clearTimeout(timer);
-      // TODO trigger end of round in UI and backend or ends move and send that to backend
-    }
-  }, 1000); //1000ms = 1s
+export function startHourglassTimer(durationSeconds) {
+  stopHourglassTimer(); // Clear any previous interval first
+  if (!hourglassLabel) return;
+ 
+  hourglassInterval = createCountdown(durationSeconds, hourglassLabel, () => {
+    // The backend drives the actual end show 0 until hourglass_ended
+    // arrives and calls stopHourglassTimer().
+  });
+}
+
+export function stopHourglassTimer() {
+  if (hourglassInterval !== null) {
+    clearInterval(hourglassInterval);
+    hourglassInterval = null;
+  }
+  if (hourglassLabel) hourglassLabel.textContent = '–';
 }

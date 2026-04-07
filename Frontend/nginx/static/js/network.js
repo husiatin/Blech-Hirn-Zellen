@@ -1,5 +1,16 @@
 import { gameInfo, playerInfo } from './state.js';
-import { renderPlayerList, renderPlayerName, startRound, renderBidList, hourglassTimer, show, renderRobots } from './ui.js';
+import { 
+  renderPlayerList, 
+  renderPlayerName, 
+  startRound, 
+  renderBidList, 
+  startHourglassTimer, 
+  startRoundTimer,
+  stopHourglassTimer,
+  stopRoundTimer, 
+  show, 
+  renderRobots 
+} from './ui.js';
 
 let ws = null;
 
@@ -36,28 +47,49 @@ export function handleNotificationMessage(message) {
         }
       }
       break;
+    case 'round_timer_started':
+      if (message.payload) {
+        startRoundTimer(message.payload.duration_seconds);
+      }
+      break;
     case 'bid_made':
       if (message.payload) {
         const game = message.payload;
         console.log(`Game update: ${game.bids}`);
-        // TODO start local timer and show bid info in UI
         Object.assign(gameInfo, game);
-        hourglassTimer();
         renderBidList(gameInfo);
       }
+      break;
+    case 'hourglass_started':
+      if (message.payload) {
+        stopRoundTimer();
+        startHourglassTimer(message.payload.duration_seconds);
+      }
+      break;
+    case 'hourglass_ended':
+      stopHourglassTimer();
       break;
     case 'bidding_ended':
       if (message.payload) {
         const game = message.payload;
         console.log(`Game update: ${game.bids}`);
-        // TODO start local timer and show bid info in UI
         Object.assign(gameInfo, game);
         hourglassTimer();
         renderBidList(gameInfo);
       }
       break;
-    case 'timer_ended':
-      console.log('Timer ended update');
+    case 'round_failed':
+      if (message.payload) {
+        const game = message.payload;
+        console.log('Round failed', message.payload);
+        Object.assign(gameInfo, game);
+        stopRoundTimer();
+        stopHourglassTimer();
+        alert("No bids were made in time! The game master will start the next round by clicking okay.");
+        if (playerInfo.player_id === gameInfo.game_master_id) {
+          sendStartGameToBackend();
+        }
+      }
       break;
     case 'demonstration_started':
       console.log('Demonstration started', message.payload);
@@ -80,12 +112,37 @@ export function handleNotificationMessage(message) {
       }
       break;
     case 'demonstration_success':
-      console.log('Demonstration success', message.payload);
-      alert('Demonstration succesful! Chip awarded.');
+      if (message.payload) {
+        const payload = message.payload;
+        console.log('Demonstration success', payload);
+        Object.assign(gameInfo, payload.game);
+        alert(`Demonstration succesful! Chip awarded to ${payload.winner_name}. The game master will start the next round by clicking on okay.`);
+        if (playerInfo.player_id === gameInfo.game_master_id) {
+          sendStartGameToBackend();
+        }
+      }
       break;
     case 'demonstration_failed':
       console.log('Demonstration failed', message.payload);
+      if (message.payload.robots) {
+        gameInfo.robots = message.payload.robots;
+        renderRobots();
+      }
       alert('Demonstration failed! ' + (message.payload.message || 'Next player...'));
+      if (playerInfo.player_id === gameInfo.game_master_id) {
+          sendStartGameToBackend();
+        }
+      break;
+    case 'end_game':
+      if (message.payload) {
+        const winners = message.payload;
+      console.log(winners);
+      stopRoundTimer();
+      stopHourglassTimer();
+      // TODO when winners is empty -> show no winners screen
+      // TODO when winners contains one player -> show one winner screen
+      // TODO when winners containes multiple players -> list players screen
+      }
       break;
     default:
       break;
