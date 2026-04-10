@@ -5,7 +5,7 @@ import logging
 from pathlib import Path
 from pydantic import BaseModel, Field
 
-from .models import Player, Board, Bid, GameStatus
+from .models import Player, Board, Bid, GameStatus, CreateGameRequest, StartGameRequest
 from .utils import random_player_id_with_n_characters, random_player_name, random_game_id_with_N_digits
 from .game import games, players, Game, game_exists
 from .notifications import manager
@@ -164,17 +164,20 @@ def _load_playable_preset(preset_name: str, quadrant_sides: dict[str, str] | Non
 
 
 @router.post("/games")
-async def create_game(player_info: Player, board_configuration: Board):
+async def create_game(request: CreateGameRequest):
     # Creates a new game with one initial player (the game master).
     try:
         game_id = str(random_game_id_with_N_digits(8))
-        new_player_list: List[Player] = [player_info]
+        new_player_list: List[Player] = [request.player_info]
         new_game = Game(
             game_id=game_id,
             player_count=1,
-            game_master_id=player_info.player_id,
+            game_master_id=request.player_info.player_id,
             player_list=new_player_list,
-            board=board_configuration,
+            board=request.board_configuration,
+            hourglass_duration=request.hourglass_duration,
+            round_timer_duration=request.round_timer_duration,
+            chips=request.chips
         )
         games.append(new_game)
         return new_game
@@ -277,14 +280,21 @@ async def join_game(game_id: str, player_info: Player):
 
 
 @router.put("/games/{game_id}/start")
-async def start_game(game_id: str, game_master_id: str):
+async def start_game(game_id: str, player_id: str, request: StartGameRequest):
     # Only game master can move game from lobby -> started.
     game = await game_exists(game_id)
     if game is None:
         return {"Wrong": "game_id"}
-    if game.game_master_id != game_master_id:
+    if game.game_master_id != player_id:
         return {"Wrong": "Not Game Master"}
+        
+    game.original_robots = request.original_robots
+    if len(game.chips) > 0:
+        import random
+        game.goal_chip = random.choice(game.chips)
+    
     game.game_status = GameStatus.STARTED
+    game.start_round_timer()
     await manager.broadcast(game_id, {"type": "game_started", "payload": game.dict()})
     return {"Game": "Started"}
 
@@ -314,7 +324,7 @@ async def make_bid(game_id: str, bid: Bid):
     if player is None:
         return {"Wrong": "Player"}
     game.bids.append(bid)
-    await game.start_timer(game.on_timer_end)
+    game.start_hourglass_timer()
     await manager.broadcast(game_id, {"type": "bid_made", "payload": game.dict()})
     return {"Bid": "accepted"}
 

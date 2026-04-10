@@ -132,8 +132,10 @@ window.addEventListener('load', () => {
 if (boardConfigForm) {
   boardConfigForm.addEventListener('submit', async (e) => {
     e.preventDefault();
+    let gameInfo = new GameInfo();
     const formData = new FormData(e.target);
-    state.game.timerSeconds = Number(formData.get('timer'));
+    gameInfo.round_timer_duration = Number(formData.get('timer'));
+    gameInfo.hourglass_duration = Number(formData.get('hourglass'));
     state.game.playerName = String(formData.get('playerName') || 'Spieler 1');
     if (state.playerInfo) state.playerInfo.player_name = state.game.playerName;
     renderPlayerName();
@@ -154,102 +156,121 @@ if (boardConfigForm) {
 // 3) create game in backend
 // 4) render and switch to game view
 if (createGame) {
-createGame.addEventListener('click', async (e) => {
-  const lobbyMsg = document.getElementById('lobby-msg');
-  try {
-    if (lobbyMsg) lobbyMsg.textContent = 'Erstelle Spiel...';
-    if (!state.playerInfo || !state.playerInfo.player_id) {
-      await init();
+  createGame.addEventListener('click', async (e) => {
+    const lobbyMsg = document.getElementById('lobby-msg');
+    try {
+      if (lobbyMsg) lobbyMsg.textContent = 'Erstelle Spiel...';
+      if (!state.playerInfo || !state.playerInfo.player_id) {
+        await init();
+      }
+      if (!state.playerInfo || !state.playerInfo.player_id) {
+        if (lobbyMsg) lobbyMsg.textContent = 'Spieler konnte nicht geladen werden. Bitte Seite neu laden.';
+        return;
+      }
+      let gameInfo = new GameInfo();
+      if (boardConfigForm) {
+        const formData = new FormData(boardConfigForm);
+        gameInfo.round_timer_duration = Number(formData.get('timer'));
+        gameInfo.hourglass_duration = Number(formData.get('hourglass'));
+        state.game.playerName = String(formData.get('playerName') || 'Spieler 1');
+        if (state.playerInfo) state.playerInfo.player_name = state.game.playerName;
+        renderPlayerName();
+      }
+      const selectedSides = getQuadrantSidesFromForm();
+      await loadPlayablePreset('default', { quadrantSides: selectedSides });
+      const data = await createGameRequest(state.playerInfo, state.finalBoardData, gameInfo.hourglass_duration, gameInfo.round_timer_duration);
+      //Object.assign(gameInfo, data);
+      gameInfo.game_id = data.game_id;
+      gameInfo.player_count = data.player_count;
+      gameInfo.game_master_id = data.game_master_id;
+      gameInfo.player_list = data.player_list;
+      gameInfo.board = data.board;
+      gameInfo.game_status = data.game_status;
+      gameInfo.bids = data.bids;
+      gameInfo.is_hourglass_running = data.is_hourglass_running;
+      gameInfo.hourglass_duration = data.hourglass_duration;
+      gameInfo.is_round_timer_running = data.is_round_timer_running;
+      gameInfo.round_timer_duration = data.round_timer_duration;
+      gameInfo.demonstrating_player_id = data.demonstrating_player_id;
+      gameInfo.demonstration_moves = data.demonstration_moves;
+      gameInfo.original_robots = data.original_robots;
+      gameInfo.robots = data.robots;
+      gameInfo.chips = data.chips;
+      gameInfo.goal_chip = data.goal_chip;
+      state.gameInfo = gameInfo;
+      renderPlayerList(state.gameInfo);
+      location.hash = '#game';
+      if (state.playerInfo && state.gameInfo && state.playerInfo.player_id === state.gameInfo.game_master_id) {
+        createGame.disabled = true;
+        createGame.classList.add('disabled');
+      }
+      if (data && data.game_id) connectNotificationWebsocket(data.game_id);
+      if (lobbyMsg) lobbyMsg.textContent = `Spiel erstellt. Spiel-ID: ${data.game_id}`;
+      startRound();
+      await sendStartGameToBackend();
+    } catch (err) {
+      if (lobbyMsg) lobbyMsg.textContent = `Create game fehlgeschlagen: ${err.message || err}`;
+      console.error(err.message || err);
     }
-    if (!state.playerInfo || !state.playerInfo.player_id) {
-      if (lobbyMsg) lobbyMsg.textContent = 'Spieler konnte nicht geladen werden. Bitte Seite neu laden.';
-      return;
-    }
-    if (boardConfigForm) {
-      const formData = new FormData(boardConfigForm);
-      state.game.timerSeconds = Number(formData.get('timer'));
-      state.game.playerName = String(formData.get('playerName') || 'Spieler 1');
-      if (state.playerInfo) state.playerInfo.player_name = state.game.playerName;
-      renderPlayerName();
-    }
-    const selectedSides = getQuadrantSidesFromForm();
-    await loadPlayablePreset('default', { quadrantSides: selectedSides });
-    const data = await createGameRequest(state.playerInfo, state.finalBoardData);
-    state.gameInfo = new GameInfo(
-      data.game_id,
-      data.player_count,
-      data.game_master_id,
-      data.player_list,
-      data.board,
-      data.game_status,
-      data.bids,
-      data.is_timer_running,
-      data.timer_duration
-    );
-    renderPlayerList(state.gameInfo);
-    startRound();
-    location.hash = '#game';
-    if (state.playerInfo && state.gameInfo && state.playerInfo.player_id === state.gameInfo.game_master_id) {
-      createGame.disabled = true;
-      createGame.classList.add('disabled');
-    }
-    if (data && data.game_id) connectNotificationWebsocket(data.game_id);
-    if (lobbyMsg) lobbyMsg.textContent = `Spiel erstellt. Spiel-ID: ${data.game_id}`;
-  } catch (err) {
-    if (lobbyMsg) lobbyMsg.textContent = `Create game fehlgeschlagen: ${err.message || err}`;
-    console.error(err.message || err);
-  }
-});
+  });
 } else {
   console.warn('create-game element not found; click handler not attached');
 }
 
 // Join game flow (existing game ID from input field).
 if (joinGame) {
-joinGame.addEventListener('click', async (e) => {
-  try {
-    const enteredGameId = document.querySelector('input[name="join-via-game-id"]').value.trim();
-    if (!enteredGameId) return console.warn('No game id provided');
-    const data = await joinGameRequest(enteredGameId, state.playerInfo);
-    if (data && data.game_id) {
-      state.gameInfo = new GameInfo(
-        data.game_id,
-        data.player_count,
-        data.game_master_id,
-        data.player_list,
-        data.board,
-        data.game_status,
-        data.bids,
-        data.is_timer_running,
-        data.timer_duration
-      );
-      renderPlayerList(state.gameInfo);
+  joinGame.addEventListener('click', async (e) => {
+    try {
+      const enteredGameId = document.querySelector('input[name="join-via-game-id"]').value.trim();
+      if (!enteredGameId) return console.warn('No game id provided');
+      const data = await joinGameRequest(enteredGameId, state.playerInfo);
+      if (data && data.game_id) {
+        state.gameInfo = new GameInfo(
+          data.game_id,
+          data.player_count,
+          data.game_master_id,
+          data.player_list,
+          data.board,
+          data.game_status,
+          data.bids,
+          data.is_hourglass_running,
+          data.hourglass_duration,
+          data.is_round_timer_running,
+          data.round_timer_duration,
+          data.demonstrating_player_id,
+          data.demonstration_moves,
+          data.original_robots,
+          data.robots,
+          data.chips,
+          data.goal_chip
+        );
+        renderPlayerList(state.gameInfo);
+      }
+      const gameId = data && data.game_id ? data.game_id : enteredGameId;
+      connectNotificationWebsocket(gameId);
+    } catch (err) {
+      console.error(err.message || err);
     }
-    const gameId = data && data.game_id ? data.game_id : enteredGameId;
-    connectNotificationWebsocket(gameId);
-  } catch (err) {
-    console.error(err.message || err);
-  }
-});
+  });
 } else {
   console.warn('join-game element not found; click handler not attached');
 }
 
 // Submit bid from game view input.
 if (makeBet) {
-makeBet.addEventListener('click', async (e) => {
+  makeBet.addEventListener('click', async (e) => {
     try {
-        await sendBidRequest(
-            state.gameInfo.game_id, 
-            state.playerInfo.player_id, 
-            Number(document.querySelector('input[name="move-count"]').value)
-        );
-        renderBidList(state.gameInfo);
+      await sendBidRequest(
+        state.gameInfo.game_id,
+        state.playerInfo.player_id,
+        Number(document.querySelector('input[name="move-count"]').value)
+      );
+      renderBidList(state.gameInfo);
     } catch (err) {
-        console.error(err.message || err);
+      console.error(err.message || err);
     }
 
-});
+  });
 } else {
   console.warn('make-bet element not found; click handler not attached');
 }
@@ -292,19 +313,8 @@ window.addEventListener('keydown', (e) => {
 
 // Dedicated listener used by mouse/keyboard events.
 window.addEventListener('renderRobots', () => {
-  import('./ui.js').then(mod => mod.renderRobots()).catch(() => {});
+  import('./ui.js').then(mod => mod.renderRobots()).catch(() => { });
 });
-
-// Small UI timer loop that updates every 200ms.
-setInterval(() => {
-  const label = document.getElementById('timer-label');
-  if (!state.roundEndAt || location.hash !== '#game') {
-    if (label) label.textContent = '–';
-    return;
-  }
-  const remaining = Math.max(0, state.roundEndAt - Date.now());
-  if (label) label.textContent = `${Math.ceil(remaining / 1000)}s`;
-}, 200);
 
 // Keep hash-based navigation consistent.
 if (!location.hash) location.hash = '#lobby';

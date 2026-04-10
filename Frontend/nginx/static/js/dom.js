@@ -22,3 +22,4 @@ export const guideButton = document.getElementById('guide-btn');
 export const guideSpan = document.getElementsByClassName('close')[0];
 // Separate label for hourglass countdown in the game status area.
 export const hourglassLabel = document.getElementById('hourglass-label');
+export const roundTimerLabel = document.getElementById('timer-label');

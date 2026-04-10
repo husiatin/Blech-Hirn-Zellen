@@ -1,7 +1,32 @@
-import { boardEl, playerListContainer, playerListUl, playerListGameId, playerNameDisplay, boardName, targetLabel, guideModal, guideButton, guideSpan } from './dom.js';
+import { boardEl, playerListContainer, playerListUl, playerListGameId, playerNameDisplay, boardName, targetLabel, guideModal, guideButton, guideSpan, roundTimerLabel, hourglassLabel } from './dom.js';
 import { WALLS } from './constants.js';
 import { state } from './state.js';
 import { lobby, game } from './dom.js';
+import { sendSocketMessage } from './network.js';
+
+let roundTimerInterval = null;
+let hourglassInterval = null;
+export const finishDemonstrationButton = document.createElement('button');
+finishDemonstrationButton.id = 'finish-demonstration-button';
+finishDemonstrationButton.textContent = 'Finish Demonstration';
+finishDemonstrationButton.hidden = true;
+if (game) game.appendChild(finishDemonstrationButton);
+
+finishDemonstrationButton.addEventListener('click', () => {
+  sendSocketMessage("finish_demonstration", {});
+  finishDemonstrationButton.hidden = true;
+});
+
+window.addEventListener('demonstration_started_event', () => {
+  if (state.gameInfo.demonstrating_player_id === state.playerInfo.player_id) {
+    finishDemonstrationButton.hidden = false;
+    alert("It's your turn to demonstrate your solution!");
+  } else {
+    finishDemonstrationButton.hidden = true;
+    demonstratingPlayerName = state.game.player_list.find(p => p.player_id === state.gameInfo.demonstrating_player_id).player_name;
+    alert(`${demonstratingPlayerName} is demonstrating.`);
+  }
+});
 
 // Render/update the list of players in the lobby.
 export function renderPlayerList(gameInfo) {
@@ -116,11 +141,45 @@ export function renderChips() {
   }
 }
 
+export function renderGoalChipLabel() {
+  if (!targetLabel) return;
+  if (!state || !state.game || !state.game.target) {
+    targetLabel.textContent = '–';
+    targetLabel.className = '';
+    targetLabel.title = '';
+    return;
+  }
+
+  let target = state.game.target;
+  let chip = state.game.chips ? state.game.chips.find(c => Number(c.x) === target.x && Number(c.y) === target.y) : null;
+
+  if (!chip) {
+    targetLabel.textContent = target.color || '–';
+    targetLabel.className = '';
+    targetLabel.title = '';
+    return;
+  }
+
+  targetLabel.className = `chip-${String(chip.color || '').toLowerCase()}`;
+
+  let char = '';
+  let symbol = chip.symbol;
+  if (String(symbol || '').toLowerCase() === 'circle') char = '●';
+  else if (String(symbol || '').toLowerCase() === 'star') char = '★';
+  else if (String(symbol || '').toLowerCase() === 'cog') char = '⚙';
+  else if (String(symbol || '').toLowerCase() === 'pentagon') char = '⬟';
+  else char = '?';
+
+  targetLabel.textContent = char;
+  targetLabel.style.fontSize = '20px';
+  targetLabel.style.fontWeight = 'bold';
+  targetLabel.title = `Ziel: ${symbol} mit Farbe ${target.color}`;
+}
+
 // Start round UI: title, target label, timer, board + entities.
 export function startRound() {
   boardName.textContent = 'Individuelles Brett';
-  targetLabel.textContent = state.game.target?.color || '–';
-  state.roundEndAt = Date.now() + state.game.timerSeconds * 1000;
+  renderGoalChipLabel();
   renderBoard(state.finalBoardData);
   renderChips();
   renderRobots();
@@ -129,25 +188,25 @@ export function startRound() {
 // Simple hash-based view switch between lobby and game.
 export function show(view) {
   // view is 'lobby' or 'game' or others
-  
+
   if (lobby) lobby.hidden = (view !== 'lobby');
   if (game) game.hidden = (view !== 'game');
 }
 
 // Render all submitted bids for the current game.
 export function renderBidList(gameInfo) {
-    const ul = document.getElementById('bids-list');
-    if (!ul) return;
-    ul.innerHTML = '';
-    const bids = gameInfo?.bids ?? [];
-    for (const bid of bids) {
-        const player = (gameInfo?.player_list ?? []).find(p => p.player_id === bid.player_id);
-        const name = player ? player.player_name : bid.player_id;
-        const label = bid.number_of_moves;
-        const li = document.createElement('li');
-        li.textContent = `${name}: ${label} moves`;
-        ul.appendChild(li);
-    }
+  const ul = document.getElementById('bids-list');
+  if (!ul) return;
+  ul.innerHTML = '';
+  const bids = gameInfo?.bids ?? [];
+  for (const bid of bids) {
+    const player = (gameInfo?.player_list ?? []).find(p => p.player_id === bid.player_id);
+    const name = player ? player.player_name : bid.player_id;
+    const label = bid.number_of_moves;
+    const li = document.createElement('li');
+    li.textContent = `${name}: ${label} moves`;
+    ul.appendChild(li);
+  }
 }
 
 // Guide modal open/close handlers.
@@ -171,3 +230,71 @@ window.addEventListener('click', (event) => {
     guideModal.style.display = 'none';
   }
 });
+
+function formatSeconds(seconds, label) {
+  if (!label) return;
+  if (seconds <= 0) {
+    label.textContent = '0s';
+    return;
+  }
+  const minutes = Math.floor(seconds / 60);
+  if (minutes > 0) {
+    label.textContent = `${minutes} min ${seconds % 60}s`;
+  } else {
+    label.textContent = `${seconds % 60}s`;
+  }
+}
+
+function createCountdown(durationSeconds, label, onExpired) {
+  let remaining = durationSeconds;
+  formatSeconds(remaining, label);
+
+  const id = setInterval(() => {
+    remaining--;
+    if (remaining <= 0) {
+      clearInterval(id);
+      formatSeconds(0, label);
+      if (typeof onExpired === 'function') onExpired();
+    } else {
+      formatSeconds(remaining, label);
+    }
+  }, 1000);
+
+  return id;
+}
+
+export function startRoundTimer(durationSeconds) {
+  stopRoundTimer(); // Clear any previous interval first
+  if (!roundTimerLabel) return;
+
+  roundTimerInterval = createCountdown(durationSeconds, roundTimerLabel, () => {
+    // The backend will send round_failed if needed; nothing to do on the
+    // frontend when the countdown hits zero other than show 0.
+  });
+}
+
+export function stopRoundTimer() {
+  if (roundTimerInterval !== null) {
+    clearInterval(roundTimerInterval);
+    roundTimerInterval = null;
+  }
+  if (roundTimerLabel) roundTimerLabel.textContent = '–';
+}
+
+export function startHourglassTimer(durationSeconds) {
+  stopHourglassTimer(); // Clear any previous interval first
+  if (!hourglassLabel) return;
+
+  hourglassInterval = createCountdown(durationSeconds, hourglassLabel, () => {
+    // The backend drives the actual end show 0 until hourglass_ended
+    // arrives and calls stopHourglassTimer().
+  });
+}
+
+export function stopHourglassTimer() {
+  if (hourglassInterval !== null) {
+    clearInterval(hourglassInterval);
+    hourglassInterval = null;
+  }
+  if (hourglassLabel) hourglassLabel.textContent = '–';
+}

@@ -1,9 +1,27 @@
-import { state, Player, GameInfo } from './state.js';
-import { renderPlayerList, renderPlayerName, startRound, renderBidList } from './ui.js';
-import { show } from './ui.js';
+import { state } from './state.js';
+import {
+  renderPlayerList,
+  renderPlayerName,
+  startRound,
+  renderBidList,
+  startHourglassTimer,
+  startRoundTimer,
+  stopHourglassTimer,
+  stopRoundTimer,
+  show,
+  renderRobots
+} from './ui.js';
 
 // Single websocket instance for game notifications.
 let ws = null;
+
+export function sendSocketMessage(type, payload) {
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify({ type, payload }));
+  } else {
+    console.warn('Cannot send WS message: websocket not open', type);
+  }
+}
 
 // Handle server events and sync local UI/state.
 export function handleNotificationMessage(message) {
@@ -24,12 +42,15 @@ export function handleNotificationMessage(message) {
         console.log(`Game update: ${game.game_status}`);
         state.gameInfo = game;
         state.finalBoardData = game.board.board_data;
-        state.roundEndAt = Date.now() + (game.timer_duration || 60) * 1000;
+        if (game.goal_chip) {
+          state.game.target = game.goal_chip;
+        }
+
         if (game.game_status === 1) {
-            renderPlayerName();
-            startRound();
-            show('game');
-            location.hash = '#game';
+          renderPlayerName();
+          startRound();
+          show('game');
+          location.hash = '#game';
         }
       }
       break;
@@ -39,7 +60,91 @@ export function handleNotificationMessage(message) {
         console.log(`Game update: ${game.bid}`);
         // TODO start local timer and show bid info in UI
         state.gameInfo = game;
+        startHourglassTimer();
         renderBidList(state.gameInfo);
+      }
+      break;
+    case 'hourglass_started':
+      if (message.payload) {
+        stopRoundTimer();
+        startHourglassTimer(message.payload.duration_seconds);
+      }
+      break;
+    case 'hourglass_ended':
+      stopHourglassTimer();
+      break;
+    case 'demonstration_started':
+      console.log('Demonstration started', message.payload);
+      state.gameInfo.demonstrating_player_id = message.payload.player_id;
+      if (message.payload.robots) {
+        state.game.robots = message.payload.robots;
+        renderRobots();
+      }
+      window.dispatchEvent(new Event('demonstration_started_event'));
+      break;
+    case 'robot_moved':
+      const move = message.payload;
+      if (state.playerInfo.player_id !== state.gameInfo.demonstrating_player_id) {
+        const robot = state.game.robots.find(r => r.id === move.robot_id || r.color === move.robot_id);
+        if (robot) {
+          robot.x = move.newX;
+          robot.y = move.newY;
+          renderRobots();
+        }
+      }
+      break;
+    case 'demonstration_success':
+      if (message.payload) {
+        const payload = message.payload;
+        console.log('Demonstration success', payload);
+        Object.assign(state.gameInfo, payload.game);
+        state.game.robots = payload.robots;
+        state.game.chips = payload.targets;
+        alert(`Demonstration succesful! Chip awarded to ${payload.winner_name}. The game master will start the next round by clicking on okay.`);
+        if (state.playerInfo.player_id === state.gameInfo.game_master_id) {
+          sendStartGameToBackend();
+        }
+      }
+      break;
+    case 'demonstration_failed':
+      console.log('Demonstration failed', message.payload);
+      if (message.payload.robots) {
+        state.game.robots = message.payload.robots;
+        renderRobots();
+      }
+      alert('Demonstration failed! ' + (message.payload.message || 'Next player...'));
+      if (state.playerInfo.player_id === state.gameInfo.game_master_id) {
+        sendStartGameToBackend();
+      }
+      break;
+    case 'round_timer_started':
+      if (message.payload) {
+        startRoundTimer(message.payload.duration_seconds);
+      }
+      break;
+    case 'round_failed':
+      if (message.payload) {
+        const game = message.payload;
+        console.log('Round failed', message.payload);
+        state.gameInfo = game;
+        state.game.robots = game.original_robots;
+        stopRoundTimer();
+        stopHourglassTimer();
+        alert("No bids were made in time! The game master will start the next round by clicking okay.");
+        if (state.playerInfo.player_id === state.gameInfo.game_master_id) {
+          sendStartGameToBackend();
+        }
+      }
+      break;
+    case 'end_game':
+      if (message.payload) {
+        const winners = message.payload;
+        console.log(winners);
+        stopRoundTimer();
+        stopHourglassTimer();
+        // TODO when winners is empty -> show no winners screen
+        // TODO when winners contains one player -> show one winner screen
+        // TODO when winners containes multiple players -> list players screen
       }
       break;
     default:
@@ -58,9 +163,13 @@ export async function sendStartGameToBackend() {
       console.warn('Only the game master can start the game');
       return;
     }
-    const response = await fetch(`/api/games/${encodeURIComponent(state.gameInfo.game_id)}/start?game_master_id=${encodeURIComponent(state.playerInfo.player_id)}`, {
+    const response = await fetch(`/api/games/${encodeURIComponent(state.gameInfo.game_id)}/start?player_id=${encodeURIComponent(state.playerInfo.player_id)}`, {
       method: "PUT",
-      headers: { "Content-Type": "application/json" }
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        original_robots: state.game.robots,
+        target: state.game.target
+      })
     });
     if (!response.ok) {
       const text = await response.text();
@@ -79,7 +188,7 @@ export function connectNotificationWebsocket(gameId) {
     return;
   }
   if (ws) {
-    try { ws.close(); } catch (e) {}
+    try { ws.close(); } catch (e) { }
     ws = null;
   }
   const wsProtocol = (location.protocol === 'https:') ? 'wss' : 'ws';
@@ -87,11 +196,17 @@ export function connectNotificationWebsocket(gameId) {
   ws = new WebSocket(wsUrl);
   ws.addEventListener('open', () => { console.log('WebSocket connection established', wsUrl); });
   ws.addEventListener('message', (event) => {
+    let message;
     try {
-      const message = JSON.parse(event.data);
-      handleNotificationMessage(message);
+      message = JSON.parse(event.data);
     } catch (err) {
       console.warn('Received non-JSON websocket message', event.data);
+      return;
+    }
+    try {
+      handleNotificationMessage(message);
+    } catch (err) {
+      console.error('Error handling websocket message:', err);
     }
   });
   ws.addEventListener('close', () => { console.log('WebSocket closed'); });
@@ -99,11 +214,11 @@ export function connectNotificationWebsocket(gameId) {
 }
 
 // Create a game using current player and generated board.
-export async function createGameRequest(playerInfo, finalBoardData) {
+export async function createGameRequest(playerInfo, finalBoardData, hourglassDuration, roundTimerDuration) {
   const response = await fetch("/api/games", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ player_info: playerInfo, board_configuration: { board_size: state.BOARD_SIZE, board_data: finalBoardData } })
+    body: JSON.stringify({ player_info: playerInfo, board_configuration: { board_size: state.BOARD_SIZE, board_data: finalBoardData }, hourglass_duration: hourglassDuration, round_timer_duration: roundTimerDuration, chips: state.game.chips || [] })
   });
   if (!response.ok) {
     const text = await response.text();
@@ -148,11 +263,11 @@ export async function joinGameRequest(enteredGameId, playerInfo) {
 }
 
 // Submit a bid (number of moves) for the active game.
-export async function sendBidRequest(gameId, playerId, bid) {
+export async function sendBidRequest(gameId, playerId, bid, robots) {
   const response = await fetch(`/api/games/${gameId}/bids`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ player_id: playerId, number_of_moves: bid })
+    body: JSON.stringify({ player_id: playerId, number_of_moves: bid, robots: robots })
   });
   //TODO handle response and errors properly, maybe show some UI feedback
   if (!response.ok) {

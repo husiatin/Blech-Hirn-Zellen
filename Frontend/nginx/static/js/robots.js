@@ -1,6 +1,7 @@
 import { state } from './state.js';
 import { WALLS } from './constants.js';
 import { renderRobots } from './ui.js';
+import { sendSocketMessage } from './network.js';
 
 // Check if another robot is already on a cell.
 export function isOccupied(x, y) {
@@ -16,6 +17,9 @@ export function slide(dx, dy) {
   if (!boardSize) return;
 
   let moved = false;
+  let startX = activeRobot.x;
+  let startY = activeRobot.y;
+  
   while (true) {
     const currentX = activeRobot.x;
     const currentY = activeRobot.y;
@@ -43,5 +47,16 @@ export function slide(dx, dy) {
     moved = true;
   }
   // Repaint only if anything changed.
-  if (moved) renderRobots();
+  if (moved) {
+    if (state.gameInfo && state.playerInfo && state.gameInfo.demonstrating_player_id === state.playerInfo.player_id) {
+       sendSocketMessage("robot_moved", {
+          robot_id: activeRobot.id,
+          startX: startX,
+          startY: startY,
+          newX: activeRobot.x,
+          newY: activeRobot.y
+       });
+    }
+    renderRobots();
+  }
 }
