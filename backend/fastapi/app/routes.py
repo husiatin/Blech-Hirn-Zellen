@@ -14,12 +14,6 @@ from .core import slide, Walls
 
 router = APIRouter()
 
-# TODO roadmap:
-# - Replace debug endpoints with production endpoints once replay workflow is implemented.
-# - Validate bid rules (time window, duplicate handling, tie-break strategy).
-# - Add endpoint for submitting official replay moves and broadcasting adjudication results.
-# - Add phase guards so actions are accepted only in valid `RoundPhase`.
-
 
 class AdapterRoundtripRequest(BaseModel):
     # Frontend board matrix + robots, used by adapter debug endpoint.

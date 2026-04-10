@@ -59,6 +59,8 @@ export const state = {
     playerName: '',
     // Dynamic entities loaded from backend board preset.
     robots: [],
+    roundStartRobots: [],
+    isSolutionPlaybackActive: false,
     activeRobotId: null,
     target: null,
     targets: [],

@@ -1,20 +1,5 @@
 from __future__ import annotations
 
-"""
-This file is an adapter between frontend payload formats and core domain logic.
-
-Goal:
-- Frontend sends/expects `board_data[y][x]` with wall bitmasks (N/E/S/W).
-- Core uses `Walls` (vertical/horizontal segments) and `State` with `Pos(row, col)`.
-
-The adapter only translates formats and intentionally contains no game rules.
-
-TODO roadmap:
-- Move shared wall bit constants to a single shared module used by frontend/backend.
-- Add dedicated tests for malformed board payloads and id/order mismatches.
-- Consider strict payload models instead of generic `dict[str, Any]` robot objects.
-"""
-
 from typing import Any, Sequence
 
 from .core import Pos, State, Walls

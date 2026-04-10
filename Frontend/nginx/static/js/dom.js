@@ -3,6 +3,8 @@
 export const lobbyView = document.getElementById('lobby-view');
 export const gameView = document.getElementById('game-view');
 export const boardEl = document.getElementById('board');
+export const boardContainerEl = document.getElementById('board-container');
+export const arrowCanvasEl = document.getElementById('arrow-canvas');
 export const timerLabel = document.getElementById('timer-label');
 export const targetLabel = document.getElementById('target-label');
 export const boardName = document.getElementById('board-name');
@@ -23,3 +25,10 @@ export const guideSpan = document.getElementsByClassName('close')[0];
 // Separate label for hourglass countdown in the game status area.
 export const hourglassLabel = document.getElementById('hourglass-label');
 export const roundTimerLabel = document.getElementById('timer-label');
+export const gameEventModal = document.getElementById('game-event-modal');
+export const gameEventTitle = document.getElementById('game-event-title');
+export const gameEventMessage = document.getElementById('game-event-message');
+export const gameEventConfirm = document.getElementById('game-event-confirm');
+export const solutionLoadingModal = document.getElementById('solution-loading-modal');
+export const solutionLoadingTitle = document.getElementById('solution-loading-title');
+export const solutionLoadingMessage = document.getElementById('solution-loading-message');

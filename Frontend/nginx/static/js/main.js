@@ -277,6 +277,7 @@ if (makeBet) {
 
 // Board click = select robot if you clicked on one.
 document.getElementById('board').addEventListener('click', (e) => {
+  if (state.game.isSolutionPlaybackActive) return;
   const cell = e.target.closest('.cell');
   if (!cell) return;
   const x = parseInt(cell.dataset.x, 10);
@@ -295,6 +296,7 @@ document.getElementById('board').addEventListener('click', (e) => {
 // - arrow keys slide active robot
 window.addEventListener('keydown', (e) => {
   if (location.hash !== '#game') return;
+  if (state.game.isSolutionPlaybackActive) return;
   const robotIds = ['red', 'blue', 'green', 'yellow'];
   const keyIndex = parseInt(e.key, 10) - 1;
   if (keyIndex >= 0 && keyIndex < robotIds.length) {

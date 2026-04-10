@@ -11,6 +11,7 @@ export function isOccupied(x, y) {
 
 // Ricochet-style movement: keep moving in a direction until blocked.
 export function slide(dx, dy) {
+  if (state.game.isSolutionPlaybackActive) return;
   const activeRobot = state.game.robots.find(r => r.id === state.game.activeRobotId);
   if (!activeRobot) return;
   const boardSize = state.finalBoardData.length;

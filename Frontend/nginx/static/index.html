@@ -117,7 +117,16 @@
           <ul id="bids-list"></ul>
         </div>
         
-        <div id="board" aria-label="Spielfeld"></div>
+        <div id="board-container">
+          <div id="board" aria-label="Spielfeld"></div>
+          <svg id="arrow-canvas" aria-hidden="true" viewBox="0 0 100 100" preserveAspectRatio="none">
+            <defs>
+              <marker id="arrowhead" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+                <path d="M0,0 L8,4 L0,8 Z" fill="context-stroke"></path>
+              </marker>
+            </defs>
+          </svg>
+        </div>
         <p>Bewege den Roboter mit den Pfeiltasten. Er rutscht bis zum Hindernis.</p>
       </section>
 
@@ -128,7 +137,23 @@
       </section>
     </main>
 
+    <div id="game-event-modal" class="modal">
+      <div class="modal-content event-modal-content">
+        <h3 id="game-event-title">Rundenhinweis</h3>
+        <p id="game-event-message"></p>
+        <button id="game-event-confirm" type="button">OK</button>
+      </div>
+    </div>
+
+    <div id="solution-loading-modal" class="modal">
+      <div class="modal-content loading-modal-content">
+        <div class="loading-spinner" aria-hidden="true"></div>
+        <h3 id="solution-loading-title">Backend arbeitet</h3>
+        <p id="solution-loading-message">Die beste Lösung wird gerade berechnet.</p>
+      </div>
+    </div>
+
     <!-- Bump ?v=... Please increment, whenever JS module files/import paths are added, removed, renamed, or moved to avoid stale browser module cache. -->
-    <script type="module" src="js/main.js?v=20260407-1"></script>
+    <script type="module" src="js/main.js?v=20260410-2"></script>
   </body>
 </html>

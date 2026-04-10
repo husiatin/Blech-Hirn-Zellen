@@ -1,11 +1,142 @@
-import { boardEl, playerListContainer, playerListUl, playerListGameId, playerNameDisplay, boardName, targetLabel, guideModal, guideButton, guideSpan, roundTimerLabel, hourglassLabel } from './dom.js';
+import {
+  boardEl,
+  boardContainerEl,
+  arrowCanvasEl,
+  playerListContainer,
+  playerListUl,
+  playerListGameId,
+  playerNameDisplay,
+  boardName,
+  targetLabel,
+  guideModal,
+  guideButton,
+  guideSpan,
+  roundTimerLabel,
+  hourglassLabel,
+  gameEventModal,
+  gameEventTitle,
+  gameEventMessage,
+  gameEventConfirm,
+  solutionLoadingModal,
+  solutionLoadingTitle,
+  solutionLoadingMessage,
+  lobby,
+  game
+} from './dom.js';
 import { WALLS } from './constants.js';
 import { state } from './state.js';
-import { lobby, game } from './dom.js';
 import { sendSocketMessage } from './network.js';
 
 let roundTimerInterval = null;
 let hourglassInterval = null;
+
+const MOVE_STEP_DELAY_MS = 1000;
+const SOLUTION_ARROW_COLORS = {
+  red: '#c73a3a',
+  yellow: '#b89a2d',
+  green: '#3caa54',
+  blue: '#3c58c7'
+};
+
+function cloneRobots(robots) {
+  return Array.isArray(robots)
+    ? robots.map((robot) => ({
+      ...robot,
+      id: String(robot.id),
+      x: Number(robot.x),
+      y: Number(robot.y)
+    }))
+    : [];
+}
+
+function delay(ms) {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
+}
+
+function getBoardSize() {
+  return state.finalBoardData.length || state.BOARD_SIZE;
+}
+
+export function rememberRoundStartRobots(robots = state.game.robots) {
+  state.game.roundStartRobots = cloneRobots(robots);
+}
+
+export function restoreRoundStartRobots() {
+  state.game.robots = cloneRobots(state.game.roundStartRobots);
+  if (state.game.robots.length && !state.game.robots.some((robot) => robot.id === state.game.activeRobotId)) {
+    state.game.activeRobotId = state.game.robots[0].id;
+  }
+  renderRobots();
+}
+
+export function clearSolutionOverlay() {
+  if (!arrowCanvasEl) return;
+  arrowCanvasEl.querySelectorAll('[data-solution-arrow="true"]').forEach((node) => node.remove());
+}
+
+export function syncArrowCanvasSize() {
+  if (!boardEl || !arrowCanvasEl || !boardContainerEl) return;
+  const width = boardEl.clientWidth || boardContainerEl.clientWidth;
+  const height = boardEl.clientHeight || boardContainerEl.clientHeight;
+  if (!width || !height) return;
+  arrowCanvasEl.setAttribute('viewBox', `0 0 ${width} ${height}`);
+}
+
+function appendSolutionArrow(move) {
+  if (!arrowCanvasEl || !boardEl) return;
+  syncArrowCanvasSize();
+  const boardSize = getBoardSize();
+  const cellWidth = boardEl.clientWidth / boardSize;
+  const cellHeight = boardEl.clientHeight / boardSize;
+  const startX = (Number(move.startX) + 0.5) * cellWidth;
+  const startY = (Number(move.startY) + 0.5) * cellHeight;
+  const endX = (Number(move.newX) + 0.5) * cellWidth;
+  const endY = (Number(move.newY) + 0.5) * cellHeight;
+  const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+  line.setAttribute('x1', String(startX));
+  line.setAttribute('y1', String(startY));
+  line.setAttribute('x2', String(endX));
+  line.setAttribute('y2', String(endY));
+  line.setAttribute('stroke', SOLUTION_ARROW_COLORS[String(move.robot_id).toLowerCase()] || '#1f2937');
+  line.setAttribute('stroke-width', '4');
+  line.setAttribute('stroke-linecap', 'round');
+  line.setAttribute('marker-end', 'url(#arrowhead)');
+  line.setAttribute('data-solution-arrow', 'true');
+  arrowCanvasEl.appendChild(line);
+}
+
+export function showGameModal(message, title = 'Rundenhinweis') {
+  if (!gameEventModal || !gameEventMessage || !gameEventConfirm) {
+    return Promise.resolve();
+  }
+
+  if (gameEventTitle) gameEventTitle.textContent = title;
+  gameEventMessage.textContent = message;
+  gameEventModal.style.display = 'block';
+
+  return new Promise((resolve) => {
+    const handleConfirm = () => {
+      gameEventModal.style.display = 'none';
+      gameEventConfirm.removeEventListener('click', handleConfirm);
+      resolve();
+    };
+
+    gameEventConfirm.addEventListener('click', handleConfirm);
+  });
+}
+
+export function showSolutionLoading(message = 'Die beste Lösung wird gerade berechnet.', title = 'Backend arbeitet') {
+  if (!solutionLoadingModal) return;
+  if (solutionLoadingTitle) solutionLoadingTitle.textContent = title;
+  if (solutionLoadingMessage) solutionLoadingMessage.textContent = message;
+  solutionLoadingModal.style.display = 'block';
+}
+
+export function hideSolutionLoading() {
+  if (!solutionLoadingModal) return;
+  solutionLoadingModal.style.display = 'none';
+}
+
 export const finishDemonstrationButton = document.createElement('button');
 finishDemonstrationButton.id = 'finish-demonstration-button';
 finishDemonstrationButton.textContent = 'Finish Demonstration';
@@ -13,18 +144,19 @@ finishDemonstrationButton.hidden = true;
 if (game) game.appendChild(finishDemonstrationButton);
 
 finishDemonstrationButton.addEventListener('click', () => {
-  sendSocketMessage("finish_demonstration", {});
+  sendSocketMessage('finish_demonstration', {});
   finishDemonstrationButton.hidden = true;
+  showSolutionLoading('Die Demonstration wird geprueft und die beste Loesung wird berechnet.', 'Runde wird ausgewertet');
 });
 
 window.addEventListener('demonstration_started_event', () => {
   if (state.gameInfo.demonstrating_player_id === state.playerInfo.player_id) {
     finishDemonstrationButton.hidden = false;
-    alert("It's your turn to demonstrate your solution!");
+    void showGameModal("It's your turn to demonstrate your solution!", 'Demonstration');
   } else {
     finishDemonstrationButton.hidden = true;
-    demonstratingPlayerName = state.game.player_list.find(p => p.player_id === state.gameInfo.demonstrating_player_id).player_name;
-    alert(`${demonstratingPlayerName} is demonstrating.`);
+    const demonstratingPlayerName = state.gameInfo?.player_list?.find((player) => player.player_id === state.gameInfo.demonstrating_player_id)?.player_name || 'Another player';
+    void showGameModal(`${demonstratingPlayerName} is demonstrating.`, 'Demonstration');
   }
 });
 
@@ -82,7 +214,8 @@ export function renderBoard(boardData) {
     for (let x = 0; x < boardSize; x++) {
       const cell = document.createElement('div');
       cell.className = 'cell';
-      cell.dataset.x = String(x); cell.dataset.y = String(y);
+      cell.dataset.x = String(x);
+      cell.dataset.y = String(y);
       const wallValue = boardData[y][x];
       // Add directional wall classes from the bitmask.
       if (wallValue & WALLS.N) cell.classList.add('wall-north');
@@ -92,12 +225,13 @@ export function renderBoard(boardData) {
       boardEl.appendChild(cell);
     }
   }
+  syncArrowCanvasSize();
 }
 
 // Paint all robots on top of board cells.
 export function renderRobots() {
-  document.querySelectorAll('[class*="robot-"], .selected').forEach(c => {
-    c.className = c.className.replace(/robot-\w+/g, '').replace('selected', '').trim();
+  document.querySelectorAll('[class*="robot-"], .selected').forEach((cell) => {
+    cell.className = cell.className.replace(/robot-\w+/g, '').replace('selected', '').trim();
   });
   for (const robot of state.game.robots) {
     const selector = `.cell[data-x="${robot.x}"][data-y="${robot.y}"]`;
@@ -150,8 +284,8 @@ export function renderGoalChipLabel() {
     return;
   }
 
-  let target = state.game.target;
-  let chip = state.game.chips ? state.game.chips.find(c => Number(c.x) === target.x && Number(c.y) === target.y) : null;
+  const target = state.game.target;
+  const chip = state.game.chips ? state.game.chips.find((item) => Number(item.x) === target.x && Number(item.y) === target.y) : null;
 
   if (!chip) {
     targetLabel.textContent = target.color || '–';
@@ -163,7 +297,7 @@ export function renderGoalChipLabel() {
   targetLabel.className = `chip-${String(chip.color || '').toLowerCase()}`;
 
   let char = '';
-  let symbol = chip.symbol;
+  const symbol = chip.symbol;
   if (String(symbol || '').toLowerCase() === 'circle') char = '●';
   else if (String(symbol || '').toLowerCase() === 'star') char = '★';
   else if (String(symbol || '').toLowerCase() === 'cog') char = '⚙';
@@ -182,13 +316,14 @@ export function startRound() {
   renderGoalChipLabel();
   renderBoard(state.finalBoardData);
   renderChips();
+  clearSolutionOverlay();
   renderRobots();
 }
 
 // Simple hash-based view switch between lobby and game.
 export function show(view) {
   // view is 'lobby' or 'game' or others
-
+  
   if (lobby) lobby.hidden = (view !== 'lobby');
   if (game) game.hidden = (view !== 'game');
 }
@@ -200,7 +335,7 @@ export function renderBidList(gameInfo) {
   ul.innerHTML = '';
   const bids = gameInfo?.bids ?? [];
   for (const bid of bids) {
-    const player = (gameInfo?.player_list ?? []).find(p => p.player_id === bid.player_id);
+    const player = (gameInfo?.player_list ?? []).find((p) => p.player_id === bid.player_id);
     const name = player ? player.player_name : bid.player_id;
     const label = bid.number_of_moves;
     const li = document.createElement('li');
@@ -230,6 +365,8 @@ window.addEventListener('click', (event) => {
     guideModal.style.display = 'none';
   }
 });
+
+window.addEventListener('resize', syncArrowCanvasSize);
 
 function formatSeconds(seconds, label) {
   if (!label) return;
@@ -268,8 +405,10 @@ export function startRoundTimer(durationSeconds) {
   if (!roundTimerLabel) return;
 
   roundTimerInterval = createCountdown(durationSeconds, roundTimerLabel, () => {
-    // The backend will send round_failed if needed; nothing to do on the
-    // frontend when the countdown hits zero other than show 0.
+    showSolutionLoading(
+      'Die Rundenzeit ist abgelaufen. Der Backend-Server berechnet jetzt die beste Lösung.',
+      'Bitte warten'
+    );
   });
 }
 
@@ -297,4 +436,30 @@ export function stopHourglassTimer() {
     hourglassInterval = null;
   }
   if (hourglassLabel) hourglassLabel.textContent = '–';
+}
+
+export async function playOptimalSolution(solutionArray) {
+  if (!Array.isArray(solutionArray) || !solutionArray.length || !state.game.roundStartRobots.length) {
+    return;
+  }
+
+  state.game.isSolutionPlaybackActive = true;
+  try {
+    clearSolutionOverlay();
+    restoreRoundStartRobots();
+    await delay(MOVE_STEP_DELAY_MS);
+
+    for (const move of solutionArray) {
+      const robot = state.game.robots.find((item) => item.id === String(move.robot_id));
+      if (!robot) continue;
+      state.game.activeRobotId = robot.id;
+      appendSolutionArrow(move);
+      robot.x = Number(move.newX);
+      robot.y = Number(move.newY);
+      renderRobots();
+      await delay(MOVE_STEP_DELAY_MS);
+    }
+  } finally {
+    state.game.isSolutionPlaybackActive = false;
+  }
 }
