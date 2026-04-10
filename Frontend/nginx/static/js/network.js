@@ -8,13 +8,16 @@ import {
   startRoundTimer,
   stopHourglassTimer,
   stopRoundTimer,
+  stopEndGameCountdown,
   show,
   renderRobots,
   showGameModal,
   playOptimalSolution,
   rememberRoundStartRobots,
   showSolutionLoading,
-  hideSolutionLoading
+  hideSolutionLoading,
+  renderEndGameScreen,
+  renderEndGameStandings
 } from './ui.js';
 
 let ws = null;
@@ -30,12 +33,30 @@ function normalizeRobots(robots) {
     : [];
 }
 
-async function playSolutionAndMaybeStartNextRound(solution, nextRoundOriginalRobots) {
+function resetEndGameState() {
+  state.game.endGame = {
+    standings: [],
+    replayVotes: {},
+    replayDurationSeconds: 0,
+    userChoice: null
+  };
+}
+
+function applyGameSnapshot(game) {
+  state.gameInfo = game;
+  state.finalBoardData = game.board.board_data;
+  state.game.robots = normalizeRobots(game.robots?.length ? game.robots : game.original_robots);
+  rememberRoundStartRobots(game.original_robots?.length ? game.original_robots : state.game.robots);
+  state.game.chips = Array.isArray(game.chips) ? game.chips : [];
+  state.game.target = game.goal_chip || null;
+  if (!state.game.robots.some((robot) => robot.id === state.game.activeRobotId)) {
+    state.game.activeRobotId = state.game.robots[0]?.id || null;
+  }
+}
+
+async function playRoundSolution(solution) {
   if (Array.isArray(solution) && solution.length) {
     await playOptimalSolution(solution);
-  }
-  if (state.playerInfo.player_id === state.gameInfo.game_master_id) {
-    await sendStartGameToBackend(nextRoundOriginalRobots);
   }
 }
 
@@ -47,34 +68,43 @@ export function sendSocketMessage(type, payload) {
   }
 }
 
-// Handle server events and sync local UI/state.
+export function sendReplayChoice(choice) {
+  state.game.endGame.userChoice = choice;
+  sendSocketMessage('replay_choice', { choice });
+}
+
 export async function handleNotificationMessage(message) {
   console.log('Received notification:', message);
   switch (message.type) {
     case 'player_joined':
       if (message.payload && message.payload.player) {
-        console.log(`Player joined: ${message.payload.player.player_name}`);
         if (state.gameInfo && state.gameInfo.player_list) {
           state.gameInfo.player_list.push(message.payload.player);
           renderPlayerList(state.gameInfo);
         }
       }
       break;
+    case 'player_left':
+      if (state.gameInfo?.player_list) {
+        state.gameInfo.player_list = state.gameInfo.player_list.filter((player) => player.player_id !== message.payload?.player_id);
+        if (message.payload?.game_master_id) {
+          state.gameInfo.game_master_id = message.payload.game_master_id;
+        }
+        state.gameInfo.player_count = state.gameInfo.player_list.length;
+        renderPlayerList(state.gameInfo);
+      }
+      break;
     case 'game_started':
       hideSolutionLoading();
+      stopEndGameCountdown();
+      resetEndGameState();
       if (message.payload) {
         const game = message.payload;
-        console.log(`Game update: ${game.game_status}`);
-        state.gameInfo = game;
-        state.finalBoardData = game.board.board_data;
-        state.game.robots = normalizeRobots(game.original_robots?.length ? game.original_robots : game.robots);
-        rememberRoundStartRobots(state.game.robots);
-        if (game.goal_chip) {
-          state.game.target = game.goal_chip;
-        }
+        applyGameSnapshot(game);
 
         if (game.game_status === 1) {
           renderPlayerName();
+          renderPlayerList(state.gameInfo);
           startRound();
           show('game');
           location.hash = '#game';
@@ -84,7 +114,6 @@ export async function handleNotificationMessage(message) {
     case 'bid_made':
       if (message.payload) {
         const game = message.payload;
-        console.log(`Game update: ${game.bid}`);
         state.gameInfo = game;
         renderBidList(state.gameInfo);
       }
@@ -97,11 +126,10 @@ export async function handleNotificationMessage(message) {
       break;
     case 'hourglass_ended':
       stopHourglassTimer();
-      showSolutionLoading('Der Backend-Server prüft den Rundenausgang und berechnet bei Bedarf die beste Lösung.', 'Bitte warten');
+      showSolutionLoading('Der Backend-Server prueft den Rundenausgang und berechnet bei Bedarf die beste Loesung.', 'Bitte warten');
       break;
     case 'demonstration_started':
       hideSolutionLoading();
-      console.log('Demonstration started', message.payload);
       state.gameInfo.demonstrating_player_id = message.payload.player_id;
       if (message.payload.robots) {
         state.game.robots = normalizeRobots(message.payload.robots);
@@ -126,26 +154,24 @@ export async function handleNotificationMessage(message) {
       hideSolutionLoading();
       if (message.payload) {
         const payload = message.payload;
-        console.log('Demonstration success', payload);
         Object.assign(state.gameInfo, payload.game);
-        const nextRoundOriginalRobots = normalizeRobots(payload.robots);
-        state.game.robots = nextRoundOriginalRobots;
+        state.game.robots = normalizeRobots(payload.robots);
+        rememberRoundStartRobots(payload.robots);
         state.game.chips = payload.targets;
 
-        let msg = `Demonstration succesful! Chip awarded to ${payload.winner_name}.`;
+        let msg = `Demonstration succesful. Chip awarded to ${payload.winner_name}.`;
         if (payload.solution && typeof payload.solution === 'string') {
           msg += `\nBackend calculated solution: ${payload.solution}`;
         } else if (Array.isArray(payload.solution)) {
-          msg += `\nFun Fact: The backend found an optimal solution in ${payload.solution.length} moves!`;
+          msg += `\nFun Fact: The backend found an optimal solution in ${payload.solution.length} moves.`;
         }
 
-        await showGameModal(msg + '\nThe game master will start the next round after the solution animation.', 'Round Result');
-        await playSolutionAndMaybeStartNextRound(payload.solution, nextRoundOriginalRobots);
+        void showGameModal(msg, 'Round Result', 2200);
+        await playRoundSolution(payload.solution);
       }
       break;
     case 'demonstration_failed':
       hideSolutionLoading();
-      console.log('Demonstration failed', message.payload);
       if (message.payload.robots) {
         state.game.robots = normalizeRobots(message.payload.robots);
         rememberRoundStartRobots(state.game.robots);
@@ -153,15 +179,15 @@ export async function handleNotificationMessage(message) {
       }
 
       {
-        let failMsg = `Demonstration failed! ${message.payload.message || 'Next player...'}`;
+        let failMsg = `Demonstration failed. ${message.payload.message || 'Next player...'}`;
         if (message.payload.solution && typeof message.payload.solution === 'string') {
           failMsg += `\nBackend solution: ${message.payload.solution}`;
         } else if (Array.isArray(message.payload.solution)) {
-          failMsg += `\nThe optimal solution actually takes ${message.payload.solution.length} moves!`;
+          failMsg += `\nThe optimal solution actually takes ${message.payload.solution.length} moves.`;
         }
 
-        await showGameModal(failMsg, 'Round Result');
-        await playSolutionAndMaybeStartNextRound(message.payload.solution, normalizeRobots(message.payload.robots));
+        void showGameModal(failMsg, 'Round Result', 2200);
+        await playRoundSolution(message.payload.solution);
       }
       break;
     case 'round_timer_started':
@@ -173,43 +199,63 @@ export async function handleNotificationMessage(message) {
       hideSolutionLoading();
       if (message.payload) {
         const game = message.payload;
-        console.log('Round failed', message.payload);
-        state.gameInfo = game;
-        const nextRoundOriginalRobots = normalizeRobots(game.original_robots);
-        state.game.robots = nextRoundOriginalRobots;
-        rememberRoundStartRobots(state.game.robots);
+        applyGameSnapshot(game);
         stopRoundTimer();
         stopHourglassTimer();
 
-        let emptyMsg = 'No bids were made in time!';
+        let emptyMsg = 'No bids were made in time.';
         if (game.solution && typeof game.solution === 'string') {
           emptyMsg += `\nBackend solution: ${game.solution}`;
         } else if (Array.isArray(game.solution)) {
-          emptyMsg += `\nBy the way, the optimal solution was ${game.solution.length} moves!`;
+          emptyMsg += `\nBy the way, the optimal solution was ${game.solution.length} moves.`;
         }
 
-        await showGameModal(emptyMsg + '\nThe game master will start the next round after the solution animation.', 'Round Result');
-        await playSolutionAndMaybeStartNextRound(game.solution, nextRoundOriginalRobots);
+        void showGameModal(emptyMsg, 'Round Result', 2200);
+        await playRoundSolution(game.solution);
       }
       break;
     case 'end_game':
       hideSolutionLoading();
+      stopRoundTimer();
+      stopHourglassTimer();
       if (message.payload) {
-        const winners = message.payload;
-        console.log(winners);
-        stopRoundTimer();
-        stopHourglassTimer();
-        // TODO when winners is empty -> show no winners screen
-        // TODO when winners contains one player -> show one winner screen
-        // TODO when winners containes multiple players -> list players screen
+        state.game.endGame.standings = Array.isArray(message.payload.standings) ? message.payload.standings : [];
+        state.game.endGame.replayVotes = message.payload.replay_votes || {};
+        state.game.endGame.replayDurationSeconds = Number(message.payload.replay_duration_seconds) || 0;
+        state.game.endGame.userChoice = null;
+        renderEndGameScreen({
+          standings: state.game.endGame.standings,
+          replayVotes: state.game.endGame.replayVotes,
+          replayDurationSeconds: state.game.endGame.replayDurationSeconds,
+          winnerNames: Array.isArray(message.payload.winner_names) ? message.payload.winner_names : []
+        });
+        show('game-over');
+        location.hash = '#game-over';
       }
+      break;
+    case 'replay_vote_updated':
+      if (message.payload) {
+        state.game.endGame.replayVotes = message.payload.replay_votes || {};
+        renderEndGameStandings(state.game.endGame.standings, state.game.endGame.replayVotes);
+      }
+      break;
+    case 'replay_vote_result':
+      if (message.payload && state.gameInfo) {
+        state.gameInfo.game_master_id = message.payload.game_master_id;
+      }
+      break;
+    case 'removed_from_game':
+      stopEndGameCountdown();
+      resetEndGameState();
+      state.gameInfo = null;
+      show('lobby');
+      location.hash = '#lobby';
       break;
     default:
       break;
   }
 }
 
-// Start game request (only game master should trigger this).
 export async function sendStartGameToBackend(original_robots = state.game.robots) {
   try {
     if (!state.gameInfo || !state.gameInfo.game_id || !state.playerInfo || !state.playerInfo.player_id) {

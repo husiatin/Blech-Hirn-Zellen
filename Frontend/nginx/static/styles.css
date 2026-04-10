@@ -214,6 +214,12 @@ button.disabled, button[disabled] {
   filter: grayscale(30%);
 }
 
+.selected-action {
+  background: #1f3b73;
+  color: #fff;
+  border-color: #1f3b73;
+}
+
 /* Guide button*/
 #container {
   display: grid;
@@ -323,4 +329,77 @@ img {
   border: 2px solid #000;
   border-radius: 4px;
   padding: 5px;
+}
+
+#game-over-view {
+  background: #fff;
+  border: 1px solid #d8d8d8;
+  border-radius: 10px;
+  padding: 16px;
+}
+
+#game-over-actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 12px 0 16px;
+}
+
+.results-player-list,
+.results-list {
+  display: grid;
+  gap: 12px;
+}
+
+.results-player {
+  border: 1px solid #ddd;
+  border-radius: 10px;
+  padding: 12px;
+  background: #fafafa;
+}
+
+.results-player.winner {
+  border-color: #ffb400;
+  background: linear-gradient(135deg, rgba(255, 243, 205, 0.95), rgba(255, 255, 255, 0.95));
+}
+
+.results-player-header,
+.results-player-title,
+.results-chip-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.results-player-header {
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.winner-badge {
+  background: #1f3b73;
+  color: #fff;
+  font-size: 0.8em;
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+
+.results-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: #fff;
+  border: 1px solid #d9d9d9;
+  font-size: 20px;
+  box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.06);
+}
+
+.results-chip-empty,
+.results-vote,
+.results-chip-count {
+  color: #4f4f4f;
 }

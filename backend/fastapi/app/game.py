@@ -1,4 +1,5 @@
 import asyncio
+import random
 from typing import List, Optional, Any
 from pydantic import BaseModel, Field
 from threading import Timer
@@ -26,13 +27,19 @@ class Game(BaseModel):
     demonstrating_player_id: Optional[str] = None
     demonstration_moves: List[Move] = Field(default_factory=list)
     original_robots: List[dict[str, Any]] = Field(default_factory=list)
+    initial_robots: List[dict[str, Any]] = Field(default_factory=list)
     robots: List[dict[str, Any]] = Field(default_factory=list)
     chips: List[dict[str, Any]] = Field(default_factory=list)
+    initial_chips: List[dict[str, Any]] = Field(default_factory=list)
     goal_chip: Optional[dict[str, Any]] = None
+    replay_duration_seconds: int = 60
+    replay_votes: dict[str, str] = Field(default_factory=dict)
 
     # asyncio Task handles excluded from Pydantic serialisation
     _hourglass_task: Optional[asyncio.Task] = None
     _round_timer_task: Optional[asyncio.Task] = None
+    _replay_task: Optional[asyncio.Task] = None
+    _round_transition_task: Optional[asyncio.Task] = None
  
     class Config:
         # Allow arbitrary types so asyncio.Task can be stored as a private attr
@@ -78,13 +85,211 @@ class Game(BaseModel):
         self._hourglass_task = None
         self.is_hourglass_running = False
 
+    def _cancel_replay_timer(self) -> None:
+        if self._replay_task and not self._replay_task.done():
+            self._replay_task.cancel()
+        self._replay_task = None
+
+    def _cancel_round_transition(self) -> None:
+        if self._round_transition_task and not self._round_transition_task.done():
+            self._round_transition_task.cancel()
+        self._round_transition_task = None
+
+    def _clone_chip(self, chip: dict[str, Any]) -> dict[str, Any]:
+        return dict(chip)
+
+    def standings(self) -> list[dict[str, Any]]:
+        standings = []
+        max_chip_count = 0
+        for player in self.player_list:
+            chip_count = len(player.won_chips)
+            max_chip_count = max(max_chip_count, chip_count)
+            standings.append(
+                {
+                    "player_id": player.player_id,
+                    "player_name": player.player_name,
+                    "won_chips": [self._clone_chip(chip) for chip in player.won_chips],
+                    "won_chip_count": chip_count,
+                    "is_game_master": player.player_id == self.game_master_id,
+                }
+            )
+
+        for row in standings:
+            row["is_winner"] = bool(standings) and row["won_chip_count"] == max_chip_count
+
+        standings.sort(
+            key=lambda row: (
+                -row["won_chip_count"],
+                str(row["player_name"]).lower(),
+                row["player_id"],
+            )
+        )
+        return standings
+
+    def winner_names(self) -> list[str]:
+        return [row["player_name"] for row in self.standings() if row["is_winner"]]
+
+    def remove_player(self, player_id: str) -> Optional[Player]:
+        for player in self.player_list:
+            if player.player_id == player_id:
+                self.player_list.remove(player)
+                self.player_count = len(self.player_list)
+                if self.game_master_id == player_id and self.player_list:
+                    self.game_master_id = self.player_list[0].player_id
+                return player
+        return None
+
+    def reset_for_new_game(self) -> None:
+        self._cancel_round_timer()
+        self._cancel_hourglass()
+        self._cancel_replay_timer()
+        self._cancel_round_transition()
+        self.game_status = GameStatus.STARTED
+        self.round_phase = RoundPhase.PLANNING
+        self.bids = []
+        self.demonstrating_player_id = None
+        self.demonstration_moves = []
+        self.replay_votes = {}
+        self.chips = [self._clone_chip(chip) for chip in self.initial_chips]
+        self.goal_chip = random.choice(self.chips) if self.chips else None
+        self.original_robots = [dict(robot) for robot in self.initial_robots]
+        self.robots = [dict(robot) for robot in self.initial_robots]
+        for player in self.player_list:
+            player.won_chips = []
+
+    def _solution_playback_duration_seconds(self, solution: list | str) -> float:
+        if not isinstance(solution, list) or not solution:
+            return 0.5
+        return 1 + len(solution)
+
+    async def start_next_round(self, robots: Optional[List[dict[str, Any]]] = None) -> None:
+        self._cancel_round_transition()
+        self._cancel_hourglass()
+        self._cancel_round_timer()
+        self.game_status = GameStatus.STARTED
+        self.round_phase = RoundPhase.PLANNING
+        self.demonstrating_player_id = None
+        self.demonstration_moves = []
+        self.bids = []
+
+        next_round_robots = robots if robots is not None else self.original_robots
+        self.original_robots = [dict(robot) for robot in next_round_robots]
+        self.robots = [dict(robot) for robot in next_round_robots]
+        self.goal_chip = random.choice(self.chips) if self.chips else None
+
+        self.start_round_timer()
+        await manager.broadcast(self.game_id, {"type": "game_started", "payload": self.dict()})
+
+    def schedule_next_round(self, solution: list | str, robots: Optional[List[dict[str, Any]]] = None) -> None:
+        self._cancel_round_transition()
+        delay_seconds = self._solution_playback_duration_seconds(solution)
+        next_round_robots = [dict(robot) for robot in (robots if robots is not None else self.original_robots)]
+
+        async def transition_task():
+            try:
+                await asyncio.sleep(delay_seconds)
+                if self.game_status == GameStatus.STARTED and self.round_phase == RoundPhase.ROUND_END and self.chips:
+                    await self.start_next_round(next_round_robots)
+            except asyncio.CancelledError:
+                pass
+            finally:
+                self._round_transition_task = None
+
+        self._round_transition_task = asyncio.create_task(transition_task())
+
+    async def start_replay_vote(self) -> None:
+        self._cancel_replay_timer()
+        self.replay_votes = {}
+
+        async def replay_task():
+            try:
+                await asyncio.sleep(self.replay_duration_seconds)
+                await self.finalize_replay_vote()
+            except asyncio.CancelledError:
+                pass
+            finally:
+                self._replay_task = None
+
+        self._replay_task = asyncio.create_task(replay_task())
+
+    async def set_replay_vote(self, player_id: str, choice: str) -> None:
+        if self.game_status != GameStatus.ENDED:
+            return
+        if choice not in {"play_again", "leave"}:
+            return
+        if not self.is_player(player_id):
+            return
+
+        self.replay_votes[player_id] = choice
+        await manager.broadcast(
+            self.game_id,
+            {
+                "type": "replay_vote_updated",
+                "payload": {
+                    "player_id": player_id,
+                    "choice": choice,
+                    "replay_votes": dict(self.replay_votes),
+                },
+            },
+        )
+
+    async def finalize_replay_vote(self) -> None:
+        self._cancel_replay_timer()
+        self._cancel_round_transition()
+        if self.game_status != GameStatus.ENDED:
+            return
+
+        staying_player_ids = {
+            player.player_id
+            for player in self.player_list
+            if self.replay_votes.get(player.player_id) == "play_again"
+        }
+        leaving_player_ids = [player.player_id for player in self.player_list if player.player_id not in staying_player_ids]
+
+        for player_id in leaving_player_ids:
+            await manager.send_to_player(
+                self.game_id,
+                player_id,
+                {"type": "removed_from_game", "payload": {"game_id": self.game_id}},
+            )
+            await manager.disconnect(self.game_id, player_id)
+
+        self.player_list = [player for player in self.player_list if player.player_id in staying_player_ids]
+        self.player_count = len(self.player_list)
+
+        if not self.player_list:
+            if self in games:
+                games.remove(self)
+            return
+
+        if self.game_master_id not in {player.player_id for player in self.player_list}:
+            self.game_master_id = self.player_list[0].player_id
+
+        self.reset_for_new_game()
+
+        await manager.broadcast(
+            self.game_id,
+            {
+                "type": "replay_vote_result",
+                "payload": {
+                    "remaining_player_ids": [player.player_id for player in self.player_list],
+                    "game_master_id": self.game_master_id,
+                },
+            },
+        )
+        self.start_round_timer()
+        await manager.broadcast(self.game_id, {"type": "game_started", "payload": self.dict()})
+
     async def on_round_timer_end(self):
         self.is_round_timer_running = False
+        self.round_phase = RoundPhase.REPLAY
         if len(self.bids) == 0:
             # End round without demonstration because no bids were made
             payload = self.dict()
             payload["solution"] = self.calculate_solution()
             await manager.broadcast(self.game_id, {"type": "round_failed", "payload": payload})
+            self.round_phase = RoundPhase.ROUND_END
+            self.schedule_next_round(payload["solution"], self.original_robots)
 
     async def on_timer_end(self):
         self._cancel_hourglass()
@@ -105,6 +310,7 @@ class Game(BaseModel):
             return
         self._cancel_round_timer()
         self.is_hourglass_running = True
+        self.round_phase = RoundPhase.REPLAY
 
         async def timer_task():
             try:
@@ -133,6 +339,7 @@ class Game(BaseModel):
             return
         self._cancel_round_timer()
         self.is_round_timer_running = True
+        self.round_phase = RoundPhase.PLANNING
         duration_seconds = self.round_timer_duration * 60
 
         async def timer_task():
@@ -167,9 +374,11 @@ class Game(BaseModel):
         else:
             self.demonstrating_player_id = None
             self.demonstration_moves = []
+            self.round_phase = RoundPhase.ROUND_END
             solution = self.calculate_solution()
             payload = {"message": "No bids left!", "robots": self.robots, "solution": solution}
             await manager.broadcast(self.game_id, {"type": "demonstration_failed", "payload": payload})
+            self.schedule_next_round(solution, self.robots)
     
     async def validate_demonstration(self) -> bool:
         if not self.demonstrating_player_id or len(self.bids) == 0:
@@ -228,10 +437,10 @@ class Game(BaseModel):
                         player.won_chips.append(self.goal_chip)
                     
                     # Demonstration succeeded, clear round state
+                    self.round_phase = RoundPhase.ROUND_END
                     self.demonstrating_player_id = None
                     self.demonstration_moves = []
                     self.bids = []
-                    self.original_robots = []
                     
                     # Safely remove goal chip from chips list
                     target_x = self.goal_chip.get("x")
@@ -241,12 +450,14 @@ class Game(BaseModel):
                             self.chips.remove(chip)
                             break
                             
+                    next_round_robots = [dict(robot) for robot in self.robots]
                     solution = self.calculate_solution()
-                    payload = {"winner_name": player.player_name if player else None, "game": self.dict(), "robots": self.robots, "targets": self.chips, "solution": solution}
+                    payload = {"winner_name": player.player_name if player else None, "game": self.dict(), "robots": next_round_robots, "targets": self.chips, "solution": solution}
                     if len(self.chips) == 0:
                         await self.end_game()
                     else:
                         await manager.broadcast(self.game_id, {"type": "demonstration_success", "payload": payload})
+                        self.schedule_next_round(solution, next_round_robots)
                 else:
                     # Demonstration failed
                     self.bids.pop(0)
@@ -255,21 +466,25 @@ class Game(BaseModel):
     async def end_game(self) -> None:
         self._cancel_round_timer()
         self._cancel_hourglass()
-
-        winners: List[Player]  = []
-        for player in self.player_list:
-            if len(winners) == 0:
-                if len(player.won_chips) != 0:
-                    winners.append(player)
-            else:
-                for winner in winners:
-                    if len(player.won_chips) == len(winner.won_chips):
-                        winners.append(player)
-                    elif len(player.won_chips) > len(winner.won_chips):
-                        winners.remove(winner)
-                        if player not in winners:
-                            winners.append(player)
-        await manager.broadcast(self.game_id, {"type": "end_game", "payload": winners})
+        self._cancel_replay_timer()
+        self._cancel_round_transition()
+        self.game_status = GameStatus.ENDED
+        self.round_phase = RoundPhase.ROUND_END
+        standings = self.standings()
+        await self.start_replay_vote()
+        await manager.broadcast(
+            self.game_id,
+            {
+                "type": "end_game",
+                "payload": {
+                    "game_id": self.game_id,
+                    "standings": standings,
+                    "winner_names": self.winner_names(),
+                    "replay_duration_seconds": self.replay_duration_seconds,
+                    "replay_votes": {},
+                },
+            },
+        )
 
     def calculate_solution(self) -> list | str:
         if not self.goal_chip or not self.original_robots or not self.board:

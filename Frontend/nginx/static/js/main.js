@@ -1,8 +1,8 @@
-import { boardConfigForm, createGame, joinGame, makeBet } from './dom.js';
+import { boardConfigForm, createGame, joinGame, makeBet, playAgainButton, leaveAfterGameButton } from './dom.js';
 import { state, Player, GameInfo } from './state.js';
-import { renderPlayerList, renderPlayerName, startRound, show, renderBidList } from './ui.js';
+import { renderPlayerList, renderPlayerName, startRound, show, renderBidList, updateReplayChoiceButtons, rememberRoundStartRobots } from './ui.js';
 import { slide } from './robots.js';
-import { createGameRequest, fetchPlayableBoardRequest, joinGameRequest, connectNotificationWebsocket, sendStartGameToBackend, handleNotificationMessage, sendBidRequest } from './network.js';
+import { createGameRequest, fetchPlayableBoardRequest, joinGameRequest, connectNotificationWebsocket, sendStartGameToBackend, sendBidRequest, sendReplayChoice } from './network.js';
 
 // Shared lobby status label (we write progress/errors here).
 const lobbyMsgEl = document.getElementById('lobby-msg');
@@ -244,7 +244,26 @@ if (joinGame) {
           data.chips,
           data.goal_chip
         );
+        state.finalBoardData = data.board?.board_data || state.finalBoardData;
+        state.game.robots = Array.isArray(data.robots)
+          ? data.robots.map((robot) => ({
+            id: String(robot.id),
+            x: Number(robot.x),
+            y: Number(robot.y)
+          }))
+          : [];
+        if (!state.game.robots.some((robot) => robot.id === state.game.activeRobotId)) {
+          state.game.activeRobotId = state.game.robots[0]?.id || null;
+        }
+        state.game.chips = Array.isArray(data.chips) ? data.chips : [];
+        state.game.target = data.goal_chip || null;
+        rememberRoundStartRobots(Array.isArray(data.original_robots) && data.original_robots.length ? data.original_robots : state.game.robots);
         renderPlayerList(state.gameInfo);
+        if (data.game_status === 1) {
+          startRound();
+          show('game');
+          location.hash = '#game';
+        }
       }
       const gameId = data && data.game_id ? data.game_id : enteredGameId;
       connectNotificationWebsocket(gameId);
@@ -313,6 +332,22 @@ window.addEventListener('keydown', (e) => {
   }
 });
 
+if (playAgainButton) {
+  playAgainButton.addEventListener('click', () => {
+    state.game.endGame.userChoice = 'play_again';
+    updateReplayChoiceButtons('play_again');
+    sendReplayChoice('play_again');
+  });
+}
+
+if (leaveAfterGameButton) {
+  leaveAfterGameButton.addEventListener('click', () => {
+    state.game.endGame.userChoice = 'leave';
+    updateReplayChoiceButtons('leave');
+    sendReplayChoice('leave');
+  });
+}
+
 // Dedicated listener used by mouse/keyboard events.
 window.addEventListener('renderRobots', () => {
   import('./ui.js').then(mod => mod.renderRobots()).catch(() => { });
@@ -327,6 +362,10 @@ function syncViewFromHash() {
     if (lobbyMsg) lobbyMsg.textContent = 'Bitte zuerst "Create game" klicken, damit ein Spielbrett erzeugt wird.';
     location.hash = '#lobby';
     show('lobby');
+    return;
+  }
+  if (view === 'game-over' && !state.game.endGame.standings.length) {
+    location.hash = state.gameInfo ? '#game' : '#lobby';
     return;
   }
   show(view);

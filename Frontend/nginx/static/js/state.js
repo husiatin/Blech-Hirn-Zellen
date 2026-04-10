@@ -64,7 +64,13 @@ export const state = {
     activeRobotId: null,
     target: null,
     targets: [],
-    chips: [], //pretty much the same as targets 
+    chips: [], 
+    endGame: {
+      standings: [],
+      replayVotes: {},
+      replayDurationSeconds: 0,
+      userChoice: null
+    }
   },
   // Board encoded with wall bit masks.
   finalBoardData: Array(BOARD_SIZE).fill(0).map(() => Array(BOARD_SIZE).fill(0)),

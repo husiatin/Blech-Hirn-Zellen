@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException, Query
 from typing import Any, List
 import json
 import logging
+import random
 from pathlib import Path
 from pydantic import BaseModel, Field
 
@@ -171,7 +172,8 @@ async def create_game(request: CreateGameRequest):
             board=request.board_configuration,
             hourglass_duration=request.hourglass_duration,
             round_timer_duration=request.round_timer_duration,
-            chips=request.chips
+            chips=request.chips,
+            initial_chips=[dict(chip) for chip in request.chips],
         )
         games.append(new_game)
         return new_game
@@ -282,9 +284,12 @@ async def start_game(game_id: str, player_id: str, request: StartGameRequest):
     if game.game_master_id != player_id:
         return {"Wrong": "Not Game Master"}
         
-    game.original_robots = request.original_robots
+    game.initial_robots = [dict(robot) for robot in request.original_robots]
+    game.original_robots = [dict(robot) for robot in request.original_robots]
+    game.robots = [dict(robot) for robot in request.original_robots]
+    if not game.initial_chips:
+        game.initial_chips = [dict(chip) for chip in game.chips]
     if len(game.chips) > 0:
-        import random
         game.goal_chip = random.choice(game.chips)
     
     game.game_status = GameStatus.STARTED
@@ -299,12 +304,16 @@ async def leave_game(game_id: str, player_id: str):
         return {"NO": "Games"}
     for game in games:
         if game.game_id == game_id:
-            for player in game.player_list:
-                if player.player_id == player_id:
-                    game.player_list.remove(player)
-                    game.player_count -= 1
-                    await manager.broadcast(game_id, {"type": "player_left", "payload": {"player_id": player_id}})
-                    return {"Player": "Left Game"}
+            removed_player = game.remove_player(player_id)
+            if removed_player:
+                await manager.broadcast(
+                    game_id,
+                    {
+                        "type": "player_left",
+                        "payload": {"player_id": player_id, "game_master_id": game.game_master_id},
+                    },
+                )
+                return {"Player": "Left Game"}
             return {"Player": "Not in Game"}
     return {"Wrong": "game_id"}
 

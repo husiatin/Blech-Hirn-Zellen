@@ -21,7 +21,13 @@ import {
   solutionLoadingTitle,
   solutionLoadingMessage,
   lobby,
-  game
+  game,
+  gameOver,
+  gameOverMessage,
+  gameOverTimer,
+  gameOverPlayerList,
+  playAgainButton,
+  leaveAfterGameButton
 } from './dom.js';
 import { WALLS } from './constants.js';
 import { state } from './state.js';
@@ -29,6 +35,7 @@ import { sendSocketMessage } from './network.js';
 
 let roundTimerInterval = null;
 let hourglassInterval = null;
+let endGameCountdownInterval = null;
 
 const MOVE_STEP_DELAY_MS = 1000;
 const SOLUTION_ARROW_COLORS = {
@@ -55,6 +62,16 @@ function delay(ms) {
 
 function getBoardSize() {
   return state.finalBoardData.length || state.BOARD_SIZE;
+}
+
+function symbolToChar(symbol) {
+  switch (String(symbol || '').toLowerCase()) {
+    case 'circle': return '●';
+    case 'star': return '★';
+    case 'cog': return '⚙';
+    case 'pentagon': return '⬟';
+    default: return '';
+  }
 }
 
 export function rememberRoundStartRobots(robots = state.game.robots) {
@@ -105,7 +122,7 @@ function appendSolutionArrow(move) {
   arrowCanvasEl.appendChild(line);
 }
 
-export function showGameModal(message, title = 'Rundenhinweis') {
+export function showGameModal(message, title = 'Rundenhinweis', autoCloseMs = null) {
   if (!gameEventModal || !gameEventMessage || !gameEventConfirm) {
     return Promise.resolve();
   }
@@ -115,17 +132,24 @@ export function showGameModal(message, title = 'Rundenhinweis') {
   gameEventModal.style.display = 'block';
 
   return new Promise((resolve) => {
+    let timeoutId = null;
     const handleConfirm = () => {
+      if (timeoutId !== null) {
+        window.clearTimeout(timeoutId);
+      }
       gameEventModal.style.display = 'none';
       gameEventConfirm.removeEventListener('click', handleConfirm);
       resolve();
     };
 
     gameEventConfirm.addEventListener('click', handleConfirm);
+    if (typeof autoCloseMs === 'number' && autoCloseMs > 0) {
+      timeoutId = window.setTimeout(handleConfirm, autoCloseMs);
+    }
   });
 }
 
-export function showSolutionLoading(message = 'Die beste Lösung wird gerade berechnet.', title = 'Backend arbeitet') {
+export function showSolutionLoading(message = 'Die beste Loesung wird gerade berechnet.', title = 'Backend arbeitet') {
   if (!solutionLoadingModal) return;
   if (solutionLoadingTitle) solutionLoadingTitle.textContent = title;
   if (solutionLoadingMessage) solutionLoadingMessage.textContent = message;
@@ -160,7 +184,6 @@ window.addEventListener('demonstration_started_event', () => {
   }
 });
 
-// Render/update the list of players in the lobby.
 export function renderPlayerList(gameInfo) {
   if (!gameInfo) {
     if (playerListContainer) playerListContainer.hidden = true;
@@ -193,7 +216,91 @@ export function renderPlayerList(gameInfo) {
   }
 }
 
-// Show current local player name in the header.
+function renderWonChips(chips = []) {
+  const chipRow = document.createElement('div');
+  chipRow.className = 'results-chip-row';
+
+  if (!chips.length) {
+    const empty = document.createElement('span');
+    empty.className = 'results-chip-empty';
+    empty.textContent = 'Keine Spielchips';
+    chipRow.appendChild(empty);
+    return chipRow;
+  }
+
+  for (const chip of chips) {
+    const chipEl = document.createElement('span');
+    chipEl.className = `results-chip chip-${String(chip.color || '').toLowerCase()}`;
+    chipEl.textContent = symbolToChar(chip.symbol);
+    chipEl.title = `${chip.color || 'chip'} ${chip.symbol || ''}`.trim();
+    chipRow.appendChild(chipEl);
+  }
+
+  return chipRow;
+}
+
+export function renderEndGameStandings(standings = [], replayVotes = {}) {
+  if (!gameOverPlayerList) return;
+  gameOverPlayerList.innerHTML = '';
+
+  const list = document.createElement('div');
+  list.className = 'results-list';
+
+  for (const player of standings) {
+    const item = document.createElement('article');
+    item.className = 'results-player';
+    if (player.is_winner) item.classList.add('winner');
+
+    const header = document.createElement('div');
+    header.className = 'results-player-header';
+
+    const titleWrap = document.createElement('div');
+    titleWrap.className = 'results-player-title';
+
+    const name = document.createElement('strong');
+    name.textContent = player.player_name || player.player_id;
+    titleWrap.appendChild(name);
+
+    if (player.is_game_master) {
+      const gmBadge = document.createElement('span');
+      gmBadge.className = 'gm-badge';
+      gmBadge.textContent = 'Spielleiter';
+      titleWrap.appendChild(gmBadge);
+    }
+
+    if (player.is_winner) {
+      const winnerBadge = document.createElement('span');
+      winnerBadge.className = 'winner-badge';
+      winnerBadge.textContent = 'Gewinner';
+      titleWrap.appendChild(winnerBadge);
+    }
+
+    const count = document.createElement('span');
+    count.className = 'results-chip-count';
+    count.textContent = `${player.won_chip_count} Spielchips`;
+
+    header.appendChild(titleWrap);
+    header.appendChild(count);
+
+    const vote = document.createElement('div');
+    vote.className = 'results-vote';
+    const choice = replayVotes[player.player_id];
+    vote.textContent =
+      choice === 'play_again'
+        ? 'Spielt weiter'
+        : choice === 'leave'
+          ? 'Verlaesst das Spiel'
+          : 'Noch keine Auswahl';
+
+    item.appendChild(header);
+    item.appendChild(renderWonChips(player.won_chips));
+    item.appendChild(vote);
+    list.appendChild(item);
+  }
+
+  gameOverPlayerList.appendChild(list);
+}
+
 export function renderPlayerName() {
   if (!playerNameDisplay) return;
   if (!state.playerInfo || !state.playerInfo.player_name) {
@@ -204,7 +311,6 @@ export function renderPlayerName() {
   playerNameDisplay.hidden = false;
 }
 
-// Draw a full board grid from backend wall data.
 export function renderBoard(boardData) {
   if (!Array.isArray(boardData) || !boardData.length) return;
   const boardSize = boardData.length;
@@ -217,7 +323,6 @@ export function renderBoard(boardData) {
       cell.dataset.x = String(x);
       cell.dataset.y = String(y);
       const wallValue = boardData[y][x];
-      // Add directional wall classes from the bitmask.
       if (wallValue & WALLS.N) cell.classList.add('wall-north');
       if (wallValue & WALLS.E) cell.classList.add('wall-east');
       if (wallValue & WALLS.S) cell.classList.add('wall-south');
@@ -228,7 +333,6 @@ export function renderBoard(boardData) {
   syncArrowCanvasSize();
 }
 
-// Paint all robots on top of board cells.
 export function renderRobots() {
   document.querySelectorAll('[class*="robot-"], .selected').forEach((cell) => {
     cell.className = cell.className.replace(/robot-\w+/g, '').replace('selected', '').trim();
@@ -245,21 +349,10 @@ export function renderRobots() {
   }
 }
 
-// Draw chip symbols (target icons) on matching cells.
 export function renderChips() {
   document.querySelectorAll('.chip').forEach((chip) => chip.remove());
   const chips = Array.isArray(state.game.chips) ? state.game.chips : [];
   if (!chips.length) return;
-
-  const symbolToChar = (symbol) => {
-    switch (String(symbol || '').toLowerCase()) {
-      case 'circle': return '●';
-      case 'star': return '★';
-      case 'cog': return '⚙';
-      case 'pentagon': return '⬟';
-      default: return '';
-    }
-  };
 
   for (const chip of chips) {
     const x = Number(chip.x);
@@ -295,22 +388,12 @@ export function renderGoalChipLabel() {
   }
 
   targetLabel.className = `chip-${String(chip.color || '').toLowerCase()}`;
-
-  let char = '';
-  const symbol = chip.symbol;
-  if (String(symbol || '').toLowerCase() === 'circle') char = '●';
-  else if (String(symbol || '').toLowerCase() === 'star') char = '★';
-  else if (String(symbol || '').toLowerCase() === 'cog') char = '⚙';
-  else if (String(symbol || '').toLowerCase() === 'pentagon') char = '⬟';
-  else char = '?';
-
-  targetLabel.textContent = char;
+  targetLabel.textContent = symbolToChar(chip.symbol) || '?';
   targetLabel.style.fontSize = '20px';
   targetLabel.style.fontWeight = 'bold';
-  targetLabel.title = `Ziel: ${symbol} mit Farbe ${target.color}`;
+  targetLabel.title = `Ziel: ${chip.symbol} mit Farbe ${target.color}`;
 }
 
-// Start round UI: title, target label, timer, board + entities.
 export function startRound() {
   boardName.textContent = 'Individuelles Brett';
   renderGoalChipLabel();
@@ -320,15 +403,12 @@ export function startRound() {
   renderRobots();
 }
 
-// Simple hash-based view switch between lobby and game.
 export function show(view) {
-  // view is 'lobby' or 'game' or others
-  
   if (lobby) lobby.hidden = (view !== 'lobby');
   if (game) game.hidden = (view !== 'game');
+  if (gameOver) gameOver.hidden = (view !== 'game-over');
 }
 
-// Render all submitted bids for the current game.
 export function renderBidList(gameInfo) {
   const ul = document.getElementById('bids-list');
   if (!ul) return;
@@ -344,22 +424,18 @@ export function renderBidList(gameInfo) {
   }
 }
 
-// Guide modal open/close handlers.
-// When the user clicks the button, open the modal 
 if (guideButton && guideModal) {
   guideButton.onclick = function () {
     guideModal.style.display = 'block';
   };
 }
 
-// When the user clicks on <span> (x), close the modal
 if (guideSpan && guideModal) {
   guideSpan.onclick = function () {
     guideModal.style.display = 'none';
   };
 }
 
-// When the user clicks anywhere outside of the modal, close it
 window.addEventListener('click', (event) => {
   if (guideModal && event.target === guideModal) {
     guideModal.style.display = 'none';
@@ -401,12 +477,12 @@ function createCountdown(durationSeconds, label, onExpired) {
 }
 
 export function startRoundTimer(durationSeconds) {
-  stopRoundTimer(); // Clear any previous interval first
+  stopRoundTimer();
   if (!roundTimerLabel) return;
 
   roundTimerInterval = createCountdown(durationSeconds, roundTimerLabel, () => {
     showSolutionLoading(
-      'Die Rundenzeit ist abgelaufen. Der Backend-Server berechnet jetzt die beste Lösung.',
+      'Die Rundenzeit ist abgelaufen. Der Backend-Server berechnet jetzt die beste Loesung.',
       'Bitte warten'
     );
   });
@@ -421,12 +497,11 @@ export function stopRoundTimer() {
 }
 
 export function startHourglassTimer(durationSeconds) {
-  stopHourglassTimer(); // Clear any previous interval first
+  stopHourglassTimer();
   if (!hourglassLabel) return;
 
   hourglassInterval = createCountdown(durationSeconds, hourglassLabel, () => {
-    // The backend drives the actual end show 0 until hourglass_ended
-    // arrives and calls stopHourglassTimer().
+    // Backend sends the actual transition event.
   });
 }
 
@@ -436,6 +511,56 @@ export function stopHourglassTimer() {
     hourglassInterval = null;
   }
   if (hourglassLabel) hourglassLabel.textContent = '–';
+}
+
+export function updateReplayChoiceButtons(choice) {
+  if (playAgainButton) {
+    playAgainButton.classList.toggle('selected-action', choice === 'play_again');
+  }
+  if (leaveAfterGameButton) {
+    leaveAfterGameButton.classList.toggle('selected-action', choice === 'leave');
+  }
+}
+
+export function stopEndGameCountdown() {
+  if (endGameCountdownInterval !== null) {
+    clearInterval(endGameCountdownInterval);
+    endGameCountdownInterval = null;
+  }
+}
+
+export function startEndGameCountdown(durationSeconds) {
+  stopEndGameCountdown();
+  if (!gameOverTimer) return;
+
+  let remaining = Number(durationSeconds) || 0;
+  gameOverTimer.textContent = `Neue Runde in ${remaining}s. Ohne Auswahl wirst du aus dem Spiel entfernt.`;
+
+  endGameCountdownInterval = window.setInterval(() => {
+    remaining -= 1;
+    if (remaining <= 0) {
+      stopEndGameCountdown();
+      gameOverTimer.textContent = 'Neue Runde wird vorbereitet...';
+      return;
+    }
+    gameOverTimer.textContent = `Neue Runde in ${remaining}s. Ohne Auswahl wirst du aus dem Spiel entfernt.`;
+  }, 1000);
+}
+
+export function renderEndGameScreen({ standings = [], replayVotes = {}, replayDurationSeconds = 0, winnerNames = [] } = {}) {
+  if (gameOverMessage) {
+    if (!standings.length) {
+      gameOverMessage.textContent = 'Alle Spielchips wurden vergeben. Es gibt keinen Gewinner.';
+    } else if (winnerNames.length === 1) {
+      gameOverMessage.textContent = `${winnerNames[0]} gewinnt mit den meisten Spielchips.`;
+    } else {
+      gameOverMessage.textContent = `${winnerNames.join(', ')} gewinnen mit gleich vielen Spielchips.`;
+    }
+  }
+
+  renderEndGameStandings(standings, replayVotes);
+  updateReplayChoiceButtons(state.game.endGame.userChoice);
+  startEndGameCountdown(replayDurationSeconds);
 }
 
 export async function playOptimalSolution(solutionArray) {

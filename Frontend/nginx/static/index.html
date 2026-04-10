@@ -133,7 +133,12 @@
       <section id="game-over-view" aria-label="Spielende" hidden>
         <h2>Spielende</h2>
         <p id="game-over-msg"></p>
-        <button id="play-again">Nochmal spielen</button>
+        <p id="game-over-timer"></p>
+        <div id="game-over-actions">
+          <button id="play-again" type="button">Weitere Runde</button>
+          <button id="leave-after-game" type="button">Spiel verlassen</button>
+        </div>
+        <div id="game-over-player-list" class="results-player-list"></div>
       </section>
     </main>
 
@@ -154,6 +159,6 @@
     </div>
 
     <!-- Bump ?v=... Please increment, whenever JS module files/import paths are added, removed, renamed, or moved to avoid stale browser module cache. -->
-    <script type="module" src="js/main.js?v=20260410-2"></script>
+    <script type="module" src="js/main.js?v=20260410-3"></script>
   </body>
 </html>

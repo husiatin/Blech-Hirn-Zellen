@@ -17,6 +17,7 @@ export const playerNameDisplay = document.getElementById('player-name-display');
 export const boardConfigForm = document.getElementById('board-config-form');
 export const lobby = document.getElementById('lobby-view');
 export const game = document.getElementById('game-view');
+export const gameOver = document.getElementById('game-over-view');
 export const makeBet = document.getElementById('make-bet');
 // Guide modal controls (optional UI).
 export const guideModal = document.getElementById('guide-modal');
@@ -32,3 +33,8 @@ export const gameEventConfirm = document.getElementById('game-event-confirm');
 export const solutionLoadingModal = document.getElementById('solution-loading-modal');
 export const solutionLoadingTitle = document.getElementById('solution-loading-title');
 export const solutionLoadingMessage = document.getElementById('solution-loading-message');
+export const gameOverMessage = document.getElementById('game-over-msg');
+export const gameOverTimer = document.getElementById('game-over-timer');
+export const gameOverPlayerList = document.getElementById('game-over-player-list');
+export const playAgainButton = document.getElementById('play-again');
+export const leaveAfterGameButton = document.getElementById('leave-after-game');

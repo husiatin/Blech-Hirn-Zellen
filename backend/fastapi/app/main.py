@@ -55,6 +55,9 @@ async def game_ws(websocket: WebSocket, game_id: str, player_id: str):
             elif data.get("type") == "finish_demonstration":
                 if game.demonstrating_player_id == player_id:
                     await game.finish_demonstration()
+            elif data.get("type") == "replay_choice":
+                payload = data.get("payload", {})
+                await game.set_replay_vote(player_id, str(payload.get("choice", "")))
     except Exception as e:
         logging.debug(f"WS closed or error: {e}")
     finally:
