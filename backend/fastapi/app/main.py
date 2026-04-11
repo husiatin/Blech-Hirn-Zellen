@@ -33,6 +33,9 @@ async def websocket_endpoint(websocket: WebSocket):
 async def game_ws(websocket: WebSocket, game_id: str, player_id: str):
     await manager.connect(game_id, player_id, websocket)
     try:
+        game = await game_exists(game_id)
+        if game:
+            await manager.send_to_player(game_id, player_id, {"type": "game_state_sync", "payload": game.dict()})
         while True:
             data = await websocket.receive_json()
             game = await game_exists(game_id)

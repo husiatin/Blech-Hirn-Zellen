@@ -1,4 +1,5 @@
 import { state } from './state.js';
+import { updateLobbyActionButtons } from './main.js';
 import {
   renderPlayerList,
   renderPlayerName,
@@ -21,6 +22,14 @@ import {
 } from './ui.js';
 
 let ws = null;
+
+function remainingSecondsFromEndsAt(endsAt, fallbackSeconds = 0) {
+  const endTimestamp = Number(endsAt);
+  if (!Number.isFinite(endTimestamp) || endTimestamp <= 0) {
+    return Math.max(0, Number(fallbackSeconds) || 0);
+  }
+  return Math.max(0, Math.ceil(endTimestamp - (Date.now() / 1000)));
+}
 
 function normalizeRobots(robots) {
   return Array.isArray(robots)
@@ -45,12 +54,51 @@ function resetEndGameState() {
 function applyGameSnapshot(game) {
   state.gameInfo = game;
   state.finalBoardData = game.board.board_data;
-  state.game.robots = normalizeRobots(game.robots?.length ? game.robots : game.original_robots);
-  rememberRoundStartRobots(game.original_robots?.length ? game.original_robots : state.game.robots);
+  const snapshotRobots = normalizeRobots(game.robots?.length ? game.robots : game.original_robots);
+  if (snapshotRobots.length) {
+    state.game.robots = snapshotRobots;
+    rememberRoundStartRobots(game.original_robots?.length ? game.original_robots : state.game.robots);
+  }
   state.game.chips = Array.isArray(game.chips) ? game.chips : [];
   state.game.target = game.goal_chip || null;
   if (!state.game.robots.some((robot) => robot.id === state.game.activeRobotId)) {
     state.game.activeRobotId = state.game.robots[0]?.id || null;
+  }
+  updateLobbyActionButtons();
+}
+
+function syncActiveTimers(game) {
+  stopRoundTimer();
+  stopHourglassTimer();
+
+  if (!game || game.game_status !== 1) {
+    return;
+  }
+
+  if (game.is_hourglass_running) {
+    startHourglassTimer(remainingSecondsFromEndsAt(game.hourglass_ends_at, game.hourglass_duration));
+    return;
+  }
+
+  if (game.is_round_timer_running) {
+    startRoundTimer(remainingSecondsFromEndsAt(game.round_timer_ends_at, Number(game.round_timer_duration) * 60));
+  }
+}
+
+function applyAndRenderGameSnapshot(game, { forceShowGame = false } = {}) {
+  if (!game) return;
+  applyGameSnapshot(game);
+  syncActiveTimers(game);
+
+  renderPlayerName();
+  renderPlayerList(state.gameInfo);
+
+  if (game.game_status === 1) {
+    startRound();
+    if (forceShowGame) {
+      show('game');
+      location.hash = '#game';
+    }
   }
 }
 
@@ -76,6 +124,13 @@ export function sendReplayChoice(choice) {
 export async function handleNotificationMessage(message) {
   console.log('Received notification:', message);
   switch (message.type) {
+    case 'game_state_sync':
+      hideSolutionLoading();
+      stopEndGameCountdown();
+      if (message.payload) {
+        applyAndRenderGameSnapshot(message.payload, { forceShowGame: message.payload.game_status === 1 });
+      }
+      break;
     case 'player_joined':
       if (message.payload && message.payload.player) {
         if (state.gameInfo && state.gameInfo.player_list) {
@@ -91,6 +146,7 @@ export async function handleNotificationMessage(message) {
           state.gameInfo.game_master_id = message.payload.game_master_id;
         }
         state.gameInfo.player_count = state.gameInfo.player_list.length;
+        updateLobbyActionButtons();
         renderPlayerList(state.gameInfo);
       }
       break;
@@ -99,16 +155,7 @@ export async function handleNotificationMessage(message) {
       stopEndGameCountdown();
       resetEndGameState();
       if (message.payload) {
-        const game = message.payload;
-        applyGameSnapshot(game);
-
-        if (game.game_status === 1) {
-          renderPlayerName();
-          renderPlayerList(state.gameInfo);
-          startRound();
-          show('game');
-          location.hash = '#game';
-        }
+        applyAndRenderGameSnapshot(message.payload, { forceShowGame: true });
       }
       break;
     case 'bid_made':
@@ -121,7 +168,7 @@ export async function handleNotificationMessage(message) {
     case 'hourglass_started':
       if (message.payload) {
         stopRoundTimer();
-        startHourglassTimer(message.payload.duration_seconds);
+        startHourglassTimer(remainingSecondsFromEndsAt(message.payload.ends_at, message.payload.duration_seconds));
       }
       break;
     case 'hourglass_ended':
@@ -192,7 +239,7 @@ export async function handleNotificationMessage(message) {
       break;
     case 'round_timer_started':
       if (message.payload) {
-        startRoundTimer(message.payload.duration_seconds);
+        startRoundTimer(remainingSecondsFromEndsAt(message.payload.ends_at, message.payload.duration_seconds));
       }
       break;
     case 'round_failed':
@@ -242,12 +289,14 @@ export async function handleNotificationMessage(message) {
     case 'replay_vote_result':
       if (message.payload && state.gameInfo) {
         state.gameInfo.game_master_id = message.payload.game_master_id;
+        updateLobbyActionButtons();
       }
       break;
     case 'removed_from_game':
       stopEndGameCountdown();
       resetEndGameState();
       state.gameInfo = null;
+      updateLobbyActionButtons();
       show('lobby');
       location.hash = '#lobby';
       break;
@@ -266,11 +315,14 @@ export async function sendStartGameToBackend(original_robots = state.game.robots
       console.warn('Only the game master can start the game');
       return;
     }
+    const startRobots = Array.isArray(original_robots) && original_robots.length
+      ? original_robots
+      : state.game.roundStartRobots;
     const response = await fetch(`/api/games/${encodeURIComponent(state.gameInfo.game_id)}/start?player_id=${encodeURIComponent(state.playerInfo.player_id)}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        original_robots: original_robots,
+        original_robots: startRobots,
         target: state.game.target
       })
     });
@@ -358,7 +410,17 @@ export async function joinGameRequest(enteredGameId, playerInfo) {
     const text = await response.text();
     throw new Error(`Join game failed: ${response.status} ${text}`);
   }
-  return response.json();
+  const data = await response.json();
+  if (data?.Wrong === 'game_id') {
+    throw new Error('Kein Spiel mit dieser Spiel-ID gefunden.');
+  }
+  if (data?.Player === 'Already in Game') {
+    throw new Error('Du bist bereits in diesem Spiel.');
+  }
+  if (!data?.game_id) {
+    throw new Error('Spiel konnte nicht beigetreten werden.');
+  }
+  return data;
 }
 
 export async function sendBidRequest(gameId, playerId, bid, robots) {

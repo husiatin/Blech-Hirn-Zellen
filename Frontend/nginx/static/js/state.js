@@ -17,9 +17,17 @@ export class GameInfo {
     demonstrating_player_id,
     demonstration_moves,
     original_robots,
+    initial_robots,
     robots,
     chips,
-    goal_chip
+    initial_chips,
+    goal_chip,
+    replay_duration_seconds,
+    replay_votes,
+    round_timer_ends_at,
+    hourglass_ends_at,
+    replay_vote_ends_at,
+    round_phase
   ) {
     this.game_id = game_id;
     this.player_count = player_count;
@@ -35,9 +43,17 @@ export class GameInfo {
     this.demonstrating_player_id = demonstrating_player_id;
     this.demonstration_moves = demonstration_moves;
     this.original_robots = original_robots;
+    this.initial_robots = initial_robots;
     this.robots = robots;
     this.chips = chips;
+    this.initial_chips = initial_chips;
     this.goal_chip = goal_chip;
+    this.replay_duration_seconds = replay_duration_seconds;
+    this.replay_votes = replay_votes;
+    this.round_timer_ends_at = round_timer_ends_at;
+    this.hourglass_ends_at = hourglass_ends_at;
+    this.replay_vote_ends_at = replay_vote_ends_at;
+    this.round_phase = round_phase;
   }
 }
 

@@ -1,5 +1,6 @@
 import asyncio
 import random
+import time
 from typing import List, Optional, Any
 from pydantic import BaseModel, Field
 from threading import Timer
@@ -34,12 +35,19 @@ class Game(BaseModel):
     goal_chip: Optional[dict[str, Any]] = None
     replay_duration_seconds: int = 60
     replay_votes: dict[str, str] = Field(default_factory=dict)
+    round_timer_ends_at: Optional[float] = None
+    hourglass_ends_at: Optional[float] = None
+    replay_vote_ends_at: Optional[float] = None
 
     # asyncio Task handles excluded from Pydantic serialisation
     _hourglass_task: Optional[asyncio.Task] = None
     _round_timer_task: Optional[asyncio.Task] = None
     _replay_task: Optional[asyncio.Task] = None
     _round_transition_task: Optional[asyncio.Task] = None
+
+    _solution_move_step_delay_seconds: float = 1.0
+    _solution_initial_delay_seconds: float = 1.0
+    _solution_final_hold_seconds: float = 7.0
  
     class Config:
         # Allow arbitrary types so asyncio.Task can be stored as a private attr
@@ -50,6 +58,9 @@ class Game(BaseModel):
             if player.player_id == player_id:
                 return player
         return None
+
+    def _now_ts(self) -> float:
+        return time.time()
 
     def add_bid(self, bid: Bid) -> None:
         self.bids.append(bid)
@@ -78,17 +89,20 @@ class Game(BaseModel):
             self._round_timer_task.cancel()
         self._round_timer_task = None
         self.is_round_timer_running = False
+        self.round_timer_ends_at = None
  
     def _cancel_hourglass(self) -> None:
         if self._hourglass_task and not self._hourglass_task.done():
             self._hourglass_task.cancel()
         self._hourglass_task = None
         self.is_hourglass_running = False
+        self.hourglass_ends_at = None
 
     def _cancel_replay_timer(self) -> None:
         if self._replay_task and not self._replay_task.done():
             self._replay_task.cancel()
         self._replay_task = None
+        self.replay_vote_ends_at = None
 
     def _cancel_round_transition(self) -> None:
         if self._round_transition_task and not self._round_transition_task.done():
@@ -97,6 +111,61 @@ class Game(BaseModel):
 
     def _clone_chip(self, chip: dict[str, Any]) -> dict[str, Any]:
         return dict(chip)
+
+    def _board_size(self) -> int:
+        return len(self.board.board_data) if self.board and self.board.board_data else 0
+
+    def _center_blocked_cells(self) -> set[tuple[int, int]]:
+        board_size = self._board_size()
+        if board_size < 2:
+            return set()
+        center_low = (board_size // 2) - 1
+        center_high = board_size // 2
+        return {
+            (center_low, center_low),
+            (center_low, center_high),
+            (center_high, center_low),
+            (center_high, center_high),
+        }
+
+    def randomize_initial_robot_positions(self, robot_templates: Optional[List[dict[str, Any]]] = None) -> List[dict[str, Any]]:
+        board_size = self._board_size()
+        if board_size <= 0:
+            raise ValueError("Board must be present before randomizing robots")
+
+        robot_ids: list[str] = []
+        seen_ids: set[str] = set()
+        for robot in robot_templates or []:
+            robot_id = str(robot.get("id", "")).strip()
+            if not robot_id or robot_id in seen_ids:
+                continue
+            seen_ids.add(robot_id)
+            robot_ids.append(robot_id)
+
+        if not robot_ids:
+            robot_ids = ["red", "blue", "green", "yellow"]
+
+        blocked_cells = {
+            (int(chip.get("x")), int(chip.get("y")))
+            for chip in self.chips
+            if chip.get("x") is not None and chip.get("y") is not None
+        }
+        blocked_cells.update(self._center_blocked_cells())
+
+        candidate_cells = [
+            (x, y)
+            for y in range(board_size)
+            for x in range(board_size)
+            if (x, y) not in blocked_cells
+        ]
+        if len(candidate_cells) < len(robot_ids):
+            raise ValueError("Not enough free cells to place all robots")
+
+        chosen_cells = random.sample(candidate_cells, len(robot_ids))
+        return [
+            {"id": robot_id, "x": x, "y": y}
+            for robot_id, (x, y) in zip(robot_ids, chosen_cells)
+        ]
 
     def standings(self) -> list[dict[str, Any]]:
         standings = []
@@ -150,6 +219,9 @@ class Game(BaseModel):
         self.demonstrating_player_id = None
         self.demonstration_moves = []
         self.replay_votes = {}
+        self.round_timer_ends_at = None
+        self.hourglass_ends_at = None
+        self.replay_vote_ends_at = None
         self.chips = [self._clone_chip(chip) for chip in self.initial_chips]
         self.goal_chip = random.choice(self.chips) if self.chips else None
         self.original_robots = [dict(robot) for robot in self.initial_robots]
@@ -160,7 +232,11 @@ class Game(BaseModel):
     def _solution_playback_duration_seconds(self, solution: list | str) -> float:
         if not isinstance(solution, list) or not solution:
             return 0.5
-        return 1 + len(solution)
+        return (
+            self._solution_initial_delay_seconds
+            + (len(solution) * self._solution_move_step_delay_seconds)
+            + self._solution_final_hold_seconds
+        )
 
     async def start_next_round(self, robots: Optional[List[dict[str, Any]]] = None) -> None:
         self._cancel_round_transition()
@@ -200,6 +276,7 @@ class Game(BaseModel):
     async def start_replay_vote(self) -> None:
         self._cancel_replay_timer()
         self.replay_votes = {}
+        self.replay_vote_ends_at = self._now_ts() + self.replay_duration_seconds
 
         async def replay_task():
             try:
@@ -282,6 +359,7 @@ class Game(BaseModel):
 
     async def on_round_timer_end(self):
         self.is_round_timer_running = False
+        self.round_timer_ends_at = None
         self.round_phase = RoundPhase.REPLAY
         if len(self.bids) == 0:
             # End round without demonstration because no bids were made
@@ -311,6 +389,7 @@ class Game(BaseModel):
         self._cancel_round_timer()
         self.is_hourglass_running = True
         self.round_phase = RoundPhase.REPLAY
+        self.hourglass_ends_at = self._now_ts() + self.hourglass_duration
 
         async def timer_task():
             try:
@@ -320,7 +399,10 @@ class Game(BaseModel):
                     self.game_id,
                     {
                         "type": "hourglass_started",
-                        "payload": {"duration_seconds": self.hourglass_duration},
+                        "payload": {
+                            "duration_seconds": self.hourglass_duration,
+                            "ends_at": self.hourglass_ends_at,
+                        },
                     },
                 )
                 await asyncio.sleep(self.hourglass_duration)
@@ -341,6 +423,7 @@ class Game(BaseModel):
         self.is_round_timer_running = True
         self.round_phase = RoundPhase.PLANNING
         duration_seconds = self.round_timer_duration * 60
+        self.round_timer_ends_at = self._now_ts() + duration_seconds
 
         async def timer_task():
             try:
@@ -349,7 +432,17 @@ class Game(BaseModel):
                     self.game_id,
                     {
                         "type": "round_timer_started",
-                        "payload": {"duration_seconds": duration_seconds},
+                        "payload": {
+                            "duration_seconds": duration_seconds,
+                            "ends_at": self.round_timer_ends_at,
+                        },
+                    },
+                )
+                await manager.broadcast(
+                    self.game_id,
+                    {
+                        "type": "game_state_sync",
+                        "payload": self.dict(),
                     },
                 )
                 await asyncio.sleep(duration_seconds)

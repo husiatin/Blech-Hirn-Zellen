@@ -83,6 +83,21 @@ header, main {
   text-shadow: 0 0 1px rgba(0, 0, 0, 0.5);
 }
 
+.start-marker {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  border-radius: 4px;
+  border: 2px solid var(--start-marker-color, #7c8798);
+  background: color-mix(in srgb, var(--start-marker-color, #7c8798) 18%, white);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.45);
+  pointer-events: none;
+  z-index: 1;
+}
+
 /* --- NEU: Regeln zum Zeichnen der Wände --- */
 /* Wir verwenden die Ränder (border) der Zellen, um die Wände darzustellen */
 .cell.wall-north {
@@ -245,7 +260,7 @@ button.disabled, button[disabled] {
 .modal {
   display: none; /* Hidden by default */
   position: fixed; /* Stay in place */
-  z-index: 1; /* Sit on top */
+  z-index: 999; /* Sit on top */
   padding-top: 10px; /* Location of the box */
   left: 0;
   top: 0;
@@ -402,4 +417,27 @@ img {
 .results-vote,
 .results-chip-count {
   color: #4f4f4f;
+}
+
+
+/* Lobby Mode */
+.lobby-mode-select {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin: 10px 0 14px;
+}
+
+.mode-card {
+  padding: 14px 12px;
+  border: 1px solid #c9c9c9;
+  border-radius: 8px;
+  background: #fff;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.mode-card:hover {
+  background: #f7f7f7;
 }

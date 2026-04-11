@@ -38,11 +38,18 @@ let hourglassInterval = null;
 let endGameCountdownInterval = null;
 
 const MOVE_STEP_DELAY_MS = 1000;
+const SOLUTION_FINAL_HOLD_MS = 7000;
 const SOLUTION_ARROW_COLORS = {
   red: '#c73a3a',
   yellow: '#b89a2d',
   green: '#3caa54',
   blue: '#3c58c7'
+};
+const START_MARKER_COLORS = {
+  red: '#df7d86',
+  yellow: '#d0b55b',
+  green: '#68bb88',
+  blue: '#6480dc'
 };
 
 function cloneRobots(robots) {
@@ -58,6 +65,27 @@ function cloneRobots(robots) {
 
 function delay(ms) {
   return new Promise((resolve) => window.setTimeout(resolve, ms));
+}
+
+function isModalVisible(modalEl) {
+  return Boolean(modalEl && modalEl.style.display === 'block');
+}
+
+export function isBoardInteractionLocked() {
+  if (state.game.isSolutionPlaybackActive) {
+    return true;
+  }
+
+  if (isModalVisible(gameEventModal) || isModalVisible(solutionLoadingModal) || isModalVisible(guideModal)) {
+    return true;
+  }
+
+  const demonstratingPlayerId = state.gameInfo?.demonstrating_player_id;
+  if (demonstratingPlayerId && demonstratingPlayerId !== state.playerInfo?.player_id) {
+    return true;
+  }
+
+  return false;
 }
 
 function getBoardSize() {
@@ -349,6 +377,25 @@ export function renderRobots() {
   }
 }
 
+export function renderStartPositionIndicators() {
+  document.querySelectorAll('.start-marker').forEach((marker) => marker.remove());
+  const startRobots = Array.isArray(state.gameInfo?.original_robots) ? state.gameInfo.original_robots : [];
+  if (!startRobots.length) return;
+
+  for (const robot of startRobots) {
+    const selector = `.cell[data-x="${Number(robot.x)}"][data-y="${Number(robot.y)}"]`;
+    const cell = document.querySelector(selector);
+    if (!cell) continue;
+
+    const marker = document.createElement('div');
+    const robotId = String(robot.id).toLowerCase();
+    marker.className = `start-marker marker-${robotId}`;
+    marker.style.setProperty('--start-marker-color', START_MARKER_COLORS[robotId] || '#7c8798');
+    marker.title = `Startposition ${robot.id}`;
+    cell.appendChild(marker);
+  }
+}
+
 export function renderChips() {
   document.querySelectorAll('.chip').forEach((chip) => chip.remove());
   const chips = Array.isArray(state.game.chips) ? state.game.chips : [];
@@ -399,6 +446,7 @@ export function startRound() {
   renderGoalChipLabel();
   renderBoard(state.finalBoardData);
   renderChips();
+  renderStartPositionIndicators();
   clearSolutionOverlay();
   renderRobots();
 }
@@ -584,6 +632,8 @@ export async function playOptimalSolution(solutionArray) {
       renderRobots();
       await delay(MOVE_STEP_DELAY_MS);
     }
+
+    await delay(SOLUTION_FINAL_HOLD_MS);
   } finally {
     state.game.isSolutionPlaybackActive = false;
   }

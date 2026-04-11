@@ -283,10 +283,17 @@ async def start_game(game_id: str, player_id: str, request: StartGameRequest):
         return {"Wrong": "game_id"}
     if game.game_master_id != player_id:
         return {"Wrong": "Not Game Master"}
+    if game.game_status != GameStatus.LOBBY:
+        return {"Wrong": "Game Already Started"}
         
-    game.initial_robots = [dict(robot) for robot in request.original_robots]
-    game.original_robots = [dict(robot) for robot in request.original_robots]
-    game.robots = [dict(robot) for robot in request.original_robots]
+    try:
+        randomized_robots = game.randomize_initial_robot_positions(request.original_robots)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    game.initial_robots = [dict(robot) for robot in randomized_robots]
+    game.original_robots = [dict(robot) for robot in randomized_robots]
+    game.robots = [dict(robot) for robot in randomized_robots]
     if not game.initial_chips:
         game.initial_chips = [dict(chip) for chip in game.chips]
     if len(game.chips) > 0:
