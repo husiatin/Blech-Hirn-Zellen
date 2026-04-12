@@ -7,12 +7,12 @@ from typing import Callable, FrozenSet
 
 @dataclass(frozen=True, order=True)
 class Pos:
-    row: int
-    col: int
+    x: int
+    y: int
 
     def step(self, delta: tuple[int, int]) -> "Pos":
-        dr, dc = delta
-        return Pos(self.row + dr, self.col + dc)
+        dx, dy = delta
+        return Pos(self.x + dx, self.y + dy)
 
 
 @dataclass(frozen=True)
@@ -35,10 +35,10 @@ class Walls:
 
 
 DIRECTIONS: dict[str, tuple[int, int]] = {
-    "up": (-1, 0),
-    "down": (1, 0),
-    "left": (0, -1),
-    "right": (0, 1),
+    "up": (0, -1),
+    "down": (0, 1),
+    "left": (-1, 0),
+    "right": (1, 0),
 }
 
 
@@ -48,29 +48,29 @@ def is_blocked(
     walls: Walls,
     occupied: set[Pos] | FrozenSet[Pos],
 ) -> bool:
-    if next_pos.row < 0 or next_pos.col < 0:
+    if next_pos.x < 0 or next_pos.y < 0:
         return True
     if next_pos in occupied:
         return True
 
-    d_row = next_pos.row - pos.row
-    d_col = next_pos.col - pos.col
+    d_x = next_pos.x - pos.x
+    d_y = next_pos.y - pos.y
 
-    if d_row == 0 and d_col == 1:
-        return (pos.col, pos.row) in walls.vertical
+    if d_x == 1 and d_y == 0:
+        return (pos.x, pos.y) in walls.vertical
 
-    if d_row == 0 and d_col == -1:
-        if pos.col == 0:
+    if d_x == -1 and d_y == 0:
+        if pos.x == 0:
             return True
-        return (pos.col - 1, pos.row) in walls.vertical
+        return (pos.x - 1, pos.y) in walls.vertical
 
-    if d_row == 1 and d_col == 0:
-        return (pos.col, pos.row) in walls.horizontal
+    if d_x == 0 and d_y == 1:
+        return (pos.x, pos.y) in walls.horizontal
 
-    if d_row == -1 and d_col == 0:
-        if pos.row == 0:
+    if d_x == 0 and d_y == -1:
+        if pos.y == 0:
             return True
-        return (pos.col, pos.row - 1) in walls.horizontal
+        return (pos.x, pos.y - 1) in walls.horizontal
 
     raise ValueError("is_blocked expects adjacent cells")
 
@@ -98,7 +98,7 @@ def slide(
 
     while True:
         nxt = current.step(delta)
-        if not (0 <= nxt.row < n and 0 <= nxt.col < n):
+        if not (0 <= nxt.x < n and 0 <= nxt.y < n):
             break
         if is_blocked(current, nxt, walls, occupied):
             break
@@ -126,7 +126,7 @@ def bfs_shortest_path(
     goal_predicate: Callable[[State], bool],
     n: int,
     walls: Walls,
-    max_depth: int = 15,
+    max_depth: int = 10,
     path_validator: Callable[[list[tuple[int, Pos, Pos]]], bool] | None = None,
     target_robot_idx: int | None = None,
 ) -> list[tuple[int, Pos, Pos]] | None:
@@ -150,9 +150,9 @@ def bfs_shortest_path(
                 if target_robot_idx is not None and robot_idx == target_robot_idx:
                     start_pos = state.robots[robot_idx]
                     end_pos = nxt.robots[robot_idx]
-                    if start_pos.row == end_pos.row and start_pos.col != end_pos.col:
+                    if start_pos.y == end_pos.y and start_pos.x != end_pos.x:
                         nxt_axes_mask |= 1
-                    elif start_pos.col == end_pos.col and start_pos.row != end_pos.row:
+                    elif start_pos.x == end_pos.x and start_pos.y != end_pos.y:
                         nxt_axes_mask |= 2
 
                 visit_key = (nxt, nxt_axes_mask)

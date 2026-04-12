@@ -306,27 +306,7 @@ if (createGame) {
       const selectedSides = getQuadrantSidesFromForm();
       await loadPlayablePreset('default', { quadrantSides: selectedSides });
       const data = await createGameRequest(state.playerInfo, state.finalBoardData, gameInfo.hourglass_duration, gameInfo.round_timer_duration);
-      gameInfo.game_id = data.game_id;
-      gameInfo.player_count = data.player_count;
-      gameInfo.game_master_id = data.game_master_id;
-      gameInfo.player_list = data.player_list;
-      gameInfo.board = data.board;
-      gameInfo.game_status = data.game_status;
-      gameInfo.bids = data.bids;
-      gameInfo.is_hourglass_running = data.is_hourglass_running;
-      gameInfo.hourglass_duration = data.hourglass_duration;
-      gameInfo.is_round_timer_running = data.is_round_timer_running;
-      gameInfo.round_timer_duration = data.round_timer_duration;
-      gameInfo.demonstrating_player_id = data.demonstrating_player_id;
-      gameInfo.demonstration_moves = data.demonstration_moves;
-      gameInfo.original_robots = data.original_robots;
-      gameInfo.robots = data.robots;
-      gameInfo.chips = data.chips;
-      gameInfo.goal_chip = data.goal_chip;
-      gameInfo.round_timer_ends_at = data.round_timer_ends_at;
-      gameInfo.hourglass_ends_at = data.hourglass_ends_at;
-      gameInfo.replay_vote_ends_at = data.replay_vote_ends_at;
-      gameInfo.round_phase = data.round_phase;
+      Object.assign(gameInfo, data);
       state.gameInfo = gameInfo;
       renderPlayerList(state.gameInfo);
       updateLobbyActionButtons();
@@ -360,29 +340,7 @@ if (joinGame) {
       }
       const data = await joinGameRequest(enteredGameId, state.playerInfo);
       if (data && data.game_id) {
-        state.gameInfo = new GameInfo(
-          data.game_id,
-          data.player_count,
-          data.game_master_id,
-          data.player_list,
-          data.board,
-          data.game_status,
-          data.bids,
-          data.is_hourglass_running,
-          data.hourglass_duration,
-          data.is_round_timer_running,
-          data.round_timer_duration,
-          data.demonstrating_player_id,
-          data.demonstration_moves,
-          data.original_robots,
-          data.robots,
-          data.chips,
-          data.goal_chip,
-          data.round_timer_ends_at,
-          data.hourglass_ends_at,
-          data.replay_vote_ends_at,
-          data.round_phase
-        );
+        state.gameInfo = Object.assign(new GameInfo(), data);
         state.finalBoardData = data.board?.board_data || state.finalBoardData;
         state.game.robots = Array.isArray(data.robots)
           ? data.robots.map((robot) => ({

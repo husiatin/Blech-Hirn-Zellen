@@ -379,7 +379,7 @@ export function renderRobots() {
 
 export function renderStartPositionIndicators() {
   document.querySelectorAll('.start-marker').forEach((marker) => marker.remove());
-  const startRobots = Array.isArray(state.gameInfo?.original_robots) ? state.gameInfo.original_robots : [];
+  const startRobots = Array.isArray(state.game.roundStartRobots) ? state.game.roundStartRobots : [];
   if (!startRobots.length) return;
 
   for (const robot of startRobots) {

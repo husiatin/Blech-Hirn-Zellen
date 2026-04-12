@@ -86,11 +86,11 @@ def _load_playable_preset(preset_name: str, quadrant_sides: dict[str, str] | Non
                 if not isinstance(side_data, dict):
                     raise KeyError(f"quadrants.{block_name}.{selected_side}")
 
-                for col, row in side_data.get("vertical", []):
+                for x, y in side_data.get("vertical", []):
                     # Shift local quadrant coordinates into global board coordinates.
-                    vertical.add((int(col) + offset_x, int(row) + offset_y))
-                for col, row in side_data.get("horizontal", []):
-                    horizontal.add((int(col) + offset_x, int(row) + offset_y))
+                    vertical.add((int(x) + offset_x, int(y) + offset_y))
+                for x, y in side_data.get("horizontal", []):
+                    horizontal.add((int(x) + offset_x, int(y) + offset_y))
 
                 for robot in side_data.get("robots", []):
                     # Same coordinate shift for entities.
@@ -128,8 +128,8 @@ def _load_playable_preset(preset_name: str, quadrant_sides: dict[str, str] | Non
             board_data = walls_to_board_data(n, walls, include_outer_borders=True)
         else:
             # Legacy fallback path.
-            vertical = frozenset((int(col), int(row)) for col, row in raw["vertical"])
-            horizontal = frozenset((int(col), int(row)) for col, row in raw["horizontal"])
+            vertical = frozenset((int(x), int(y)) for x, y in raw["vertical"])
+            horizontal = frozenset((int(x), int(y)) for x, y in raw["horizontal"])
             walls = Walls(vertical=vertical, horizontal=horizontal)
             board_data = walls_to_board_data(n, walls, include_outer_borders=True)
             robots = raw.get("robots", [])
@@ -291,7 +291,6 @@ async def start_game(game_id: str, player_id: str, request: StartGameRequest):
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
-    game.initial_robots = [dict(robot) for robot in randomized_robots]
     game.original_robots = [dict(robot) for robot in randomized_robots]
     game.robots = [dict(robot) for robot in randomized_robots]
     if not game.initial_chips:
@@ -359,7 +358,7 @@ async def adapter_roundtrip(payload: AdapterRoundtripRequest):
             "horizontal": sorted(list(walls.horizontal)),
         },
         "board_data_roundtrip": board_data_roundtrip,
-        "state": [{"row": pos.row, "col": pos.col} for pos in state.robots],
+        "state": [{"x": pos.x, "y": pos.y} for pos in state.robots],
         "robots_roundtrip": robots_roundtrip,
     }
 
@@ -390,7 +389,7 @@ async def debug_move_simulate(payload: MoveSimulateRequest):
         "board_size": n,
         "active_robot_id": payload.active_robot_id,
         "direction": payload.direction,
-        "state_before": [{"row": pos.row, "col": pos.col} for pos in state.robots],
-        "state_after": [{"row": pos.row, "col": pos.col} for pos in next_state.robots],
+        "state_before": [{"x": pos.x, "y": pos.y} for pos in state.robots],
+        "state_after": [{"x": pos.x, "y": pos.y} for pos in next_state.robots],
         "robots_after_move": robots_after_move,
     }

@@ -28,7 +28,6 @@ class Game(BaseModel):
     demonstrating_player_id: Optional[str] = None
     demonstration_moves: List[Move] = Field(default_factory=list)
     original_robots: List[dict[str, Any]] = Field(default_factory=list)
-    initial_robots: List[dict[str, Any]] = Field(default_factory=list)
     robots: List[dict[str, Any]] = Field(default_factory=list)
     chips: List[dict[str, Any]] = Field(default_factory=list)
     initial_chips: List[dict[str, Any]] = Field(default_factory=list)
@@ -224,8 +223,9 @@ class Game(BaseModel):
         self.replay_vote_ends_at = None
         self.chips = [self._clone_chip(chip) for chip in self.initial_chips]
         self.goal_chip = random.choice(self.chips) if self.chips else None
-        self.original_robots = [dict(robot) for robot in self.initial_robots]
-        self.robots = [dict(robot) for robot in self.initial_robots]
+        rerandomized_robots = self.randomize_initial_robot_positions(self.original_robots or self.robots)
+        self.original_robots = [dict(robot) for robot in rerandomized_robots]
+        self.robots = [dict(robot) for robot in rerandomized_robots]
         for player in self.player_list:
             player.won_chips = []
 
@@ -605,16 +605,16 @@ class Game(BaseModel):
             
         def goal_predicate(state: State) -> bool:
             pos = state.robots[target_robot_idx]
-            return pos.col == target_x and pos.row == target_y
+            return pos.x == target_x and pos.y == target_y
             
         def path_validator(path: list[tuple[int, Any, Any]]) -> bool:
             # Sets do not allow duplicate values, so we just aggregate unique axes (horizontal and vertical)
             axes = set()
             for current_robot_idx, start_pos, end_pos in path:
                 if current_robot_idx == target_robot_idx:
-                    if start_pos.row == end_pos.row and start_pos.col != end_pos.col:
+                    if start_pos.y == end_pos.y and start_pos.x != end_pos.x:
                         axes.add('H')
-                    elif start_pos.col == end_pos.col and start_pos.row != end_pos.row:
+                    elif start_pos.x == end_pos.x and start_pos.y != end_pos.y:
                         axes.add('V')
             return len(axes) == 2
 
@@ -626,10 +626,10 @@ class Game(BaseModel):
         for robot_idx, start_pos, end_pos in path:
             solution_moves.append({
                 "robot_id": robot_ids[robot_idx],
-                "startX": start_pos.col,
-                "startY": start_pos.row,
-                "newX": end_pos.col,
-                "newY": end_pos.row
+                "startX": start_pos.x,
+                "startY": start_pos.y,
+                "newX": end_pos.x,
+                "newY": end_pos.y
             })
             
         return solution_moves
@@ -643,20 +643,4 @@ async def game_exists(game_id: str) -> Optional[Game]:
     for game in games:
         if game.game_id == game_id:
             return game
-    return None
-
-
-def award_game_chip(player_id: str):
-    # TODO: implement awarding logic
-    return None
-
-
-def end_round():
-    # TODO: implement round-ending logic
-    # allow the player with the lowest number of moves to demonstrate their solution
-    # if that doesn't work pick the next until a solution is found or no solution is found
-    # if a solution is found allocate the game chip to the player
-    # else the game chip is not awarded and stays a playable game chip / remains in the set of game chips
-    # if there are remaining game chips the game continues
-    # else the game is ended and the players can start a new round
     return None

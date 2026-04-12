@@ -17,7 +17,6 @@ export class GameInfo {
     demonstrating_player_id,
     demonstration_moves,
     original_robots,
-    initial_robots,
     robots,
     chips,
     initial_chips,
@@ -43,7 +42,6 @@ export class GameInfo {
     this.demonstrating_player_id = demonstrating_player_id;
     this.demonstration_moves = demonstration_moves;
     this.original_robots = original_robots;
-    this.initial_robots = initial_robots;
     this.robots = robots;
     this.chips = chips;
     this.initial_chips = initial_chips;

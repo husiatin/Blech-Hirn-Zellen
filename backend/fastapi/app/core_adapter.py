@@ -57,19 +57,19 @@ def walls_to_board_data(
             board[i][0] |= WALL_W
             board[i][n - 1] |= WALL_E
 
-    for col, row in walls.vertical:
-        # Vertical segment lies between (col,row) and (col+1,row).
-        if 0 <= col < n and 0 <= row < n:
-            board[row][col] |= WALL_E
-        if 0 <= col + 1 < n and 0 <= row < n:
-            board[row][col + 1] |= WALL_W
+    for x, y in walls.vertical:
+        # Vertical segment lies between (x,y) and (x+1,y).
+        if 0 <= x < n and 0 <= y < n:
+            board[y][x] |= WALL_E
+        if 0 <= x + 1 < n and 0 <= y < n:
+            board[y][x + 1] |= WALL_W
 
-    for col, row in walls.horizontal:
-        # Horizontal segment lies between (col,row) and (col,row+1).
-        if 0 <= col < n and 0 <= row < n:
-            board[row][col] |= WALL_S
-        if 0 <= col < n and 0 <= row + 1 < n:
-            board[row + 1][col] |= WALL_N
+    for x, y in walls.horizontal:
+        # Horizontal segment lies between (x,y) and (x,y+1).
+        if 0 <= x < n and 0 <= y < n:
+            board[y][x] |= WALL_S
+        if 0 <= x < n and 0 <= y + 1 < n:
+            board[y + 1][x] |= WALL_N
 
     return board
 
@@ -84,8 +84,7 @@ def robots_to_state(robots: Sequence[dict[str, Any]]) -> tuple[State, tuple[str,
             raise ValueError("each robot must have id, x, y")
 
         robot_ids.append(str(robot["id"]))
-        # Frontend uses x/y, core uses Pos(row, col)
-        positions.append(Pos(row=int(robot["y"]), col=int(robot["x"])))
+        positions.append(Pos(x=int(robot["x"]), y=int(robot["y"])))
 
     return State(robots=tuple(positions)), tuple(robot_ids)
 
@@ -106,8 +105,8 @@ def state_to_robots(
     for idx, pos in enumerate(state.robots):
         robot_id = str(robot_ids[idx])
         item = template_map.get(robot_id, {"id": robot_id})
-        item["x"] = pos.col
-        item["y"] = pos.row
+        item["x"] = pos.x
+        item["y"] = pos.y
         result.append(item)
 
     return result
