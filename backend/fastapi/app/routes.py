@@ -332,7 +332,7 @@ async def make_bid(game_id: str, bid: Bid):
     player = game.is_player(bid.player_id)
     if player is None:
         return {"Wrong": "Player"}
-    game.bids.append(bid)
+    game.add_bid(bid)
     game.start_hourglass_timer()
     await manager.broadcast(game_id, {"type": "bid_made", "payload": game.dict()})
     return {"Bid": "accepted"}
