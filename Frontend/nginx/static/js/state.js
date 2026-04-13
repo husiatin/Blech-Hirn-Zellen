@@ -19,7 +19,14 @@ export class GameInfo {
     original_robots,
     robots,
     chips,
-    goal_chip
+    initial_chips,
+    goal_chip,
+    replay_duration_seconds,
+    replay_votes,
+    round_timer_ends_at,
+    hourglass_ends_at,
+    replay_vote_ends_at,
+    round_phase
   ) {
     this.game_id = game_id;
     this.player_count = player_count;
@@ -37,7 +44,14 @@ export class GameInfo {
     this.original_robots = original_robots;
     this.robots = robots;
     this.chips = chips;
+    this.initial_chips = initial_chips;
     this.goal_chip = goal_chip;
+    this.replay_duration_seconds = replay_duration_seconds;
+    this.replay_votes = replay_votes;
+    this.round_timer_ends_at = round_timer_ends_at;
+    this.hourglass_ends_at = hourglass_ends_at;
+    this.replay_vote_ends_at = replay_vote_ends_at;
+    this.round_phase = round_phase;
   }
 }
 
@@ -59,10 +73,18 @@ export const state = {
     playerName: '',
     // Dynamic entities loaded from backend board preset.
     robots: [],
+    roundStartRobots: [],
+    isSolutionPlaybackActive: false,
     activeRobotId: null,
     target: null,
     targets: [],
-    chips: [], //pretty much the same as targets 
+    chips: [], 
+    endGame: {
+      standings: [],
+      replayVotes: {},
+      replayDurationSeconds: 0,
+      userChoice: null
+    }
   },
   // Board encoded with wall bit masks.
   finalBoardData: Array(BOARD_SIZE).fill(0).map(() => Array(BOARD_SIZE).fill(0)),

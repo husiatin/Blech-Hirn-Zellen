@@ -30,6 +30,12 @@
       <section id="lobby-view" aria-label="Lobby">
         <h2>Lobby und Konfiguration</h2>
 
+        <div id="lobby-mode-select" class="lobby-mode-select">
+          <button id="show-create-flow" type="button" class="mode-card">Spiel erstellen</button>
+          <button id="show-join-flow" type="button" class="mode-card">Spiel beitreten</button>
+        </div>
+
+        <div id="create-flow" hidden>
         <form id="board-config-form"> 
           <h3>1. Spiel-Einstellungen</h3>
           <label>
@@ -75,7 +81,7 @@
             </select>
           </label>
 
-          <button type="submit">Spiel starten</button>
+          <button id="start-game" type="submit" disabled>Spiel starten</button>
           <button id="create-game" type="button">Create game</button>
           <label id="game-id-display"></label>
           
@@ -85,14 +91,18 @@
             <ul id="player-list-ul"></ul>
           </div>
           
+        </form>
+        </div>
+
+        <div id="join-flow" hidden>
           <h3>3. Spiel beitreten</h3>
           <label>
             Gebe hier die Spiel-Id des Spiels ein dem du beitreten möchtest:
-            <input name="join-via-game-id" type="text" placeholder="Spiel-Id">
+            <input id="join-game-id-input" name="join-via-game-id" type="text" placeholder="Spiel-Id">
           </label>
 
           <button id="join-game" type="button">Spiel beitreten</button>
-        </form>
+        </div>
 
         <p id="lobby-msg"></p>
       </section>
@@ -101,7 +111,7 @@
         <h2>Aktuelle Runde</h2>
         <label>
             Gebe hier die Zuganzahl an:
-            <input name="move-count" type="number" min="1" max="100" value="1">
+            <input name="move-count" type="number" min="2" max="100" value="2">
         </label>
         <button id="make-bet" type="button">Zuganzahl abgeben</button>
 
@@ -117,18 +127,47 @@
           <ul id="bids-list"></ul>
         </div>
         
-        <div id="board" aria-label="Spielfeld"></div>
+        <div id="board-container">
+          <div id="board" aria-label="Spielfeld"></div>
+          <svg id="arrow-canvas" aria-hidden="true" viewBox="0 0 100 100" preserveAspectRatio="none">
+            <defs>
+              <marker id="arrowhead" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+                <path d="M0,0 L8,4 L0,8 Z" fill="context-stroke"></path>
+              </marker>
+            </defs>
+          </svg>
+        </div>
         <p>Bewege den Roboter mit den Pfeiltasten. Er rutscht bis zum Hindernis.</p>
       </section>
 
       <section id="game-over-view" aria-label="Spielende" hidden>
         <h2>Spielende</h2>
         <p id="game-over-msg"></p>
-        <button id="play-again">Nochmal spielen</button>
+        <p id="game-over-timer"></p>
+        <div id="game-over-actions">
+          <button id="play-again" type="button">Weitere Runde</button>
+          <button id="leave-after-game" type="button">Spiel verlassen</button>
+        </div>
+        <div id="game-over-player-list" class="results-player-list"></div>
       </section>
     </main>
 
-    <!-- Bump ?v=... Please increment, whenever JS module files/import paths are added, removed, renamed, or moved to avoid stale browser module cache. -->
-    <script type="module" src="js/main.js?v=20260407-1"></script>
+    <div id="game-event-modal" class="modal">
+      <div class="modal-content event-modal-content">
+        <h3 id="game-event-title">Rundenhinweis</h3>
+        <p id="game-event-message"></p>
+        <button id="game-event-confirm" type="button">OK</button>
+      </div>
+    </div>
+
+    <div id="solution-loading-modal" class="modal">
+      <div class="modal-content loading-modal-content">
+        <div class="loading-spinner" aria-hidden="true"></div>
+        <h3 id="solution-loading-title">Backend arbeitet</h3>
+        <p id="solution-loading-message">Die beste Lösung wird gerade berechnet.</p>
+      </div>
+    </div>
+
+    <script type="module" src="js/main.js"></script>
   </body>
 </html>

@@ -10,7 +10,7 @@ TODO roadmap:
 - Decide whether API keys should be `snake_case` only or support legacy camelCase aliases.
 """
 
-from typing import List, Any
+from typing import List, Any, Optional
 from pydantic import BaseModel, Field
 from enum import Enum
 
@@ -73,4 +73,4 @@ class CreateGameRequest(BaseModel):
 
 class StartGameRequest(BaseModel):
     original_robots: List[dict[str, Any]]
-    target: dict[str, Any]
+    target: Optional[dict[str, Any]] = None

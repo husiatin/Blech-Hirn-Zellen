@@ -27,6 +27,21 @@ header, main {
   border: var(--wall-thickness) solid var(--wall-color); /* Ein äußerer Rahmen für das Brett */
 }
 
+#board-container {
+  position: relative;
+  display: inline-block;
+}
+
+#arrow-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  overflow: visible;
+  z-index: 4;
+}
+
 /* Jede einzelne Zelle im Grid */
 .cell {
   width: var(--cell-size);
@@ -66,6 +81,21 @@ header, main {
 .chip-yellow {
   color: #cfc18a;
   text-shadow: 0 0 1px rgba(0, 0, 0, 0.5);
+}
+
+.start-marker {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  border-radius: 4px;
+  border: 2px solid var(--start-marker-color, #7c8798);
+  background: color-mix(in srgb, var(--start-marker-color, #7c8798) 18%, white);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.45);
+  pointer-events: none;
+  z-index: 1;
 }
 
 /* --- NEU: Regeln zum Zeichnen der Wände --- */
@@ -199,6 +229,12 @@ button.disabled, button[disabled] {
   filter: grayscale(30%);
 }
 
+.selected-action {
+  background: #1f3b73;
+  color: #fff;
+  border-color: #1f3b73;
+}
+
 /* Guide button*/
 #container {
   display: grid;
@@ -224,7 +260,7 @@ button.disabled, button[disabled] {
 .modal {
   display: none; /* Hidden by default */
   position: fixed; /* Stay in place */
-  z-index: 1; /* Sit on top */
+  z-index: 999; /* Sit on top */
   padding-top: 10px; /* Location of the box */
   left: 0;
   top: 0;
@@ -244,6 +280,38 @@ button.disabled, button[disabled] {
   border: 1px solid #888;
   width: 80%;
   height: 90%;
+}
+
+.event-modal-content {
+  width: min(480px, calc(100vw - 32px));
+  height: auto;
+  text-align: center;
+}
+
+#game-event-message {
+  white-space: pre-line;
+}
+
+.loading-modal-content {
+  width: min(420px, calc(100vw - 32px));
+  height: auto;
+  text-align: center;
+  padding: 28px 20px;
+}
+
+.loading-spinner {
+  width: 44px;
+  height: 44px;
+  margin: 0 auto 16px;
+  border: 4px solid #d8d8d8;
+  border-top-color: #3c58c7;
+  border-radius: 50%;
+  animation: solution-spin 0.9s linear infinite;
+}
+
+@keyframes solution-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
 
 /* The Close Button */
@@ -276,4 +344,100 @@ img {
   border: 2px solid #000;
   border-radius: 4px;
   padding: 5px;
+}
+
+#game-over-view {
+  background: #fff;
+  border: 1px solid #d8d8d8;
+  border-radius: 10px;
+  padding: 16px;
+}
+
+#game-over-actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 12px 0 16px;
+}
+
+.results-player-list,
+.results-list {
+  display: grid;
+  gap: 12px;
+}
+
+.results-player {
+  border: 1px solid #ddd;
+  border-radius: 10px;
+  padding: 12px;
+  background: #fafafa;
+}
+
+.results-player.winner {
+  border-color: #ffb400;
+  background: linear-gradient(135deg, rgba(255, 243, 205, 0.95), rgba(255, 255, 255, 0.95));
+}
+
+.results-player-header,
+.results-player-title,
+.results-chip-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.results-player-header {
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.winner-badge {
+  background: #1f3b73;
+  color: #fff;
+  font-size: 0.8em;
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+
+.results-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: #fff;
+  border: 1px solid #d9d9d9;
+  font-size: 20px;
+  box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.06);
+}
+
+.results-chip-empty,
+.results-vote,
+.results-chip-count {
+  color: #4f4f4f;
+}
+
+
+/* Lobby Mode */
+.lobby-mode-select {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin: 10px 0 14px;
+}
+
+.mode-card {
+  padding: 14px 12px;
+  border: 1px solid #c9c9c9;
+  border-radius: 8px;
+  background: #fff;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.mode-card:hover {
+  background: #f7f7f7;
 }

@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException, Query
 from typing import Any, List
 import json
 import logging
+import random
 from pathlib import Path
 from pydantic import BaseModel, Field
 
@@ -13,12 +14,6 @@ from .core_adapter import board_data_to_walls, walls_to_board_data, robots_to_st
 from .core import slide, Walls
 
 router = APIRouter()
-
-# TODO roadmap:
-# - Replace debug endpoints with production endpoints once replay workflow is implemented.
-# - Validate bid rules (time window, duplicate handling, tie-break strategy).
-# - Add endpoint for submitting official replay moves and broadcasting adjudication results.
-# - Add phase guards so actions are accepted only in valid `RoundPhase`.
 
 
 class AdapterRoundtripRequest(BaseModel):
@@ -91,11 +86,11 @@ def _load_playable_preset(preset_name: str, quadrant_sides: dict[str, str] | Non
                 if not isinstance(side_data, dict):
                     raise KeyError(f"quadrants.{block_name}.{selected_side}")
 
-                for col, row in side_data.get("vertical", []):
+                for x, y in side_data.get("vertical", []):
                     # Shift local quadrant coordinates into global board coordinates.
-                    vertical.add((int(col) + offset_x, int(row) + offset_y))
-                for col, row in side_data.get("horizontal", []):
-                    horizontal.add((int(col) + offset_x, int(row) + offset_y))
+                    vertical.add((int(x) + offset_x, int(y) + offset_y))
+                for x, y in side_data.get("horizontal", []):
+                    horizontal.add((int(x) + offset_x, int(y) + offset_y))
 
                 for robot in side_data.get("robots", []):
                     # Same coordinate shift for entities.
@@ -133,8 +128,8 @@ def _load_playable_preset(preset_name: str, quadrant_sides: dict[str, str] | Non
             board_data = walls_to_board_data(n, walls, include_outer_borders=True)
         else:
             # Legacy fallback path.
-            vertical = frozenset((int(col), int(row)) for col, row in raw["vertical"])
-            horizontal = frozenset((int(col), int(row)) for col, row in raw["horizontal"])
+            vertical = frozenset((int(x), int(y)) for x, y in raw["vertical"])
+            horizontal = frozenset((int(x), int(y)) for x, y in raw["horizontal"])
             walls = Walls(vertical=vertical, horizontal=horizontal)
             board_data = walls_to_board_data(n, walls, include_outer_borders=True)
             robots = raw.get("robots", [])
@@ -177,7 +172,8 @@ async def create_game(request: CreateGameRequest):
             board=request.board_configuration,
             hourglass_duration=request.hourglass_duration,
             round_timer_duration=request.round_timer_duration,
-            chips=request.chips
+            chips=request.chips,
+            initial_chips=[dict(chip) for chip in request.chips],
         )
         games.append(new_game)
         return new_game
@@ -287,10 +283,19 @@ async def start_game(game_id: str, player_id: str, request: StartGameRequest):
         return {"Wrong": "game_id"}
     if game.game_master_id != player_id:
         return {"Wrong": "Not Game Master"}
+    if game.game_status != GameStatus.LOBBY:
+        return {"Wrong": "Game Already Started"}
         
-    game.original_robots = request.original_robots
+    try:
+        randomized_robots = game.randomize_initial_robot_positions(request.original_robots)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    game.original_robots = [dict(robot) for robot in randomized_robots]
+    game.robots = [dict(robot) for robot in randomized_robots]
+    if not game.initial_chips:
+        game.initial_chips = [dict(chip) for chip in game.chips]
     if len(game.chips) > 0:
-        import random
         game.goal_chip = random.choice(game.chips)
     
     game.game_status = GameStatus.STARTED
@@ -305,12 +310,16 @@ async def leave_game(game_id: str, player_id: str):
         return {"NO": "Games"}
     for game in games:
         if game.game_id == game_id:
-            for player in game.player_list:
-                if player.player_id == player_id:
-                    game.player_list.remove(player)
-                    game.player_count -= 1
-                    await manager.broadcast(game_id, {"type": "player_left", "payload": {"player_id": player_id}})
-                    return {"Player": "Left Game"}
+            removed_player = game.remove_player(player_id)
+            if removed_player:
+                await manager.broadcast(
+                    game_id,
+                    {
+                        "type": "player_left",
+                        "payload": {"player_id": player_id, "game_master_id": game.game_master_id},
+                    },
+                )
+                return {"Player": "Left Game"}
             return {"Player": "Not in Game"}
     return {"Wrong": "game_id"}
 
@@ -323,7 +332,7 @@ async def make_bid(game_id: str, bid: Bid):
     player = game.is_player(bid.player_id)
     if player is None:
         return {"Wrong": "Player"}
-    game.bids.append(bid)
+    game.add_bid(bid)
     game.start_hourglass_timer()
     await manager.broadcast(game_id, {"type": "bid_made", "payload": game.dict()})
     return {"Bid": "accepted"}
@@ -349,7 +358,7 @@ async def adapter_roundtrip(payload: AdapterRoundtripRequest):
             "horizontal": sorted(list(walls.horizontal)),
         },
         "board_data_roundtrip": board_data_roundtrip,
-        "state": [{"row": pos.row, "col": pos.col} for pos in state.robots],
+        "state": [{"x": pos.x, "y": pos.y} for pos in state.robots],
         "robots_roundtrip": robots_roundtrip,
     }
 
@@ -380,7 +389,7 @@ async def debug_move_simulate(payload: MoveSimulateRequest):
         "board_size": n,
         "active_robot_id": payload.active_robot_id,
         "direction": payload.direction,
-        "state_before": [{"row": pos.row, "col": pos.col} for pos in state.robots],
-        "state_after": [{"row": pos.row, "col": pos.col} for pos in next_state.robots],
+        "state_before": [{"x": pos.x, "y": pos.y} for pos in state.robots],
+        "state_after": [{"x": pos.x, "y": pos.y} for pos in next_state.robots],
         "robots_after_move": robots_after_move,
     }

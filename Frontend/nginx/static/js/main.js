@@ -1,11 +1,45 @@
-import { boardConfigForm, createGame, joinGame, makeBet } from './dom.js';
+import { boardConfigForm, createGame, startGame, joinGame, makeBet, playAgainButton, leaveAfterGameButton, joinGameIdInput, lobbyModeSelect, showCreateFlow, showJoinFlow, createFlow, joinFlow } from './dom.js';
 import { state, Player, GameInfo } from './state.js';
-import { renderPlayerList, renderPlayerName, startRound, show, renderBidList } from './ui.js';
+import { renderPlayerList, renderPlayerName, startRound, show, renderBidList, updateReplayChoiceButtons, rememberRoundStartRobots, isBoardInteractionLocked } from './ui.js';
 import { slide } from './robots.js';
-import { createGameRequest, fetchPlayableBoardRequest, joinGameRequest, connectNotificationWebsocket, sendStartGameToBackend, handleNotificationMessage, sendBidRequest } from './network.js';
+import { createGameRequest, fetchPlayableBoardRequest, joinGameRequest, connectNotificationWebsocket, sendStartGameToBackend, sendBidRequest, sendReplayChoice } from './network.js';
 
 // Shared lobby status label (we write progress/errors here).
 const lobbyMsgEl = document.getElementById('lobby-msg');
+let initPromise = null;
+
+function delay(ms) {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
+}
+
+async function fetchJsonWithRetry(url, options = {}, { attempts = 5, delayMs = 500 } = {}) {
+  let lastError = null;
+
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    try {
+      const response = await fetch(url, options);
+      const rawBody = await response.text();
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${rawBody.slice(0, 160)}`);
+      }
+
+      try {
+        return JSON.parse(rawBody);
+      } catch {
+        throw new Error(`Expected JSON but received: ${rawBody.slice(0, 160)}`);
+      }
+    } catch (err) {
+      lastError = err;
+      if (attempt < attempts) {
+        await delay(delayMs);
+        continue;
+      }
+    }
+  }
+
+  throw lastError || new Error('Request failed');
+}
 
 // Convert robot IDs from backend into user-facing German labels.
 function robotIdToLabel(robotId) {
@@ -15,6 +49,44 @@ function robotIdToLabel(robotId) {
     case 'green': return 'Gruen';
     case 'yellow': return 'Gelb';
     default: return robotId || 'Ziel';
+  }
+}
+
+export function updateLobbyActionButtons() {
+  const hasGame = Boolean(state.gameInfo && state.gameInfo.game_id);
+  const isGameMaster = Boolean(
+    hasGame &&
+    state.playerInfo &&
+    state.playerInfo.player_id === state.gameInfo.game_master_id
+  );
+  const canStart =
+    hasGame &&
+    isGameMaster &&
+    state.gameInfo.game_status === 0;
+
+  if (createGame) {
+    createGame.disabled = hasGame;
+    createGame.classList.toggle('disabled', hasGame);
+  }
+
+  if (startGame) {
+    startGame.disabled = !canStart;
+    startGame.classList.toggle('disabled', !canStart);
+  }
+  if (joinGame) {
+    joinGame.disabled = hasGame;
+    joinGame.classList.toggle('disabled', hasGame);
+  }
+  if (joinGameIdInput) {
+    joinGameIdInput.disabled = hasGame;
+  }
+  if (showCreateFlow) {
+    showCreateFlow.disabled = hasGame;
+    showCreateFlow.classList.toggle('disabled', hasGame);
+  }
+  if (showJoinFlow) {
+    showJoinFlow.disabled = hasGame;
+    showJoinFlow.classList.toggle('disabled', hasGame);
   }
 }
 
@@ -105,43 +177,94 @@ async function loadPlayablePreset(presetName = 'default', { startRoundAfterLoad 
 
 // Create local player identity via backend.
 async function init() {
+  if (state.playerInfo?.player_id) {
+    return state.playerInfo;
+  }
+  if (initPromise) {
+    return initPromise;
+  }
+
+  initPromise = (async () => {
   try {
-    const response = await fetch("/api/players", { method: "POST" });
-    const data = await response.json();
+    const data = await fetchJsonWithRetry("/api/players", { method: "POST" });
     state.playerInfo = new Player(data.player_id, data.player_name, data.moves);
     console.log(`Your Player Id is ${state.playerInfo.player_id} and your Player Name is ${state.playerInfo.player_name}!`);
     renderPlayerName();
+    return state.playerInfo;
   } catch (err) {
     console.error('Failed to init player', err);
+    if (lobbyMsgEl) {
+      lobbyMsgEl.textContent = `Spieler konnte nicht geladen werden: ${err.message || err}`;
+    }
+    throw err;
+  } finally {
+    initPromise = null;
   }
+  })();
+
+  return initPromise;
 }
 
 // Initial app bootstrap.
 window.addEventListener('load', init);
 window.addEventListener('load', () => {
-  if (createGame) {
-    createGame.disabled = false;
-    createGame.classList.remove('disabled');
-  }
+  updateLobbyActionButtons();
   if (lobbyMsgEl && !lobbyMsgEl.textContent.trim()) {
     lobbyMsgEl.textContent = 'Frontend bereit.';
   }
 });
 
+function setLobbyMode(mode) {
+  if (!lobbyModeSelect || !createFlow || !joinFlow) return;
+  if (mode === 'create') {
+    lobbyModeSelect.hidden = true;
+    createFlow.hidden = false;
+    joinFlow.hidden = true;
+    return;
+  }
+  if (mode === 'join') {
+    lobbyModeSelect.hidden = true;
+    createFlow.hidden = true;
+    joinFlow.hidden = false;
+    return;
+  }
+  lobbyModeSelect.hidden = false;
+  createFlow.hidden = true;
+  joinFlow.hidden = true;
+}
+
+setLobbyMode('select');
+if (showCreateFlow) {
+  showCreateFlow.addEventListener('click', () => {
+    if (state.gameInfo?.game_id) return;
+    setLobbyMode('create');
+    if (lobbyMsgEl) lobbyMsgEl.textContent = 'Create setup geöffnet.';
+  });
+}
+if (showJoinFlow) {
+  showJoinFlow.addEventListener('click', () => {
+    if (state.gameInfo?.game_id) return;
+    setLobbyMode('join');
+    if (lobbyMsgEl) lobbyMsgEl.textContent = 'Join setup geöffnet.';
+  });
+}
+
 // Board config form: currently used to start the already created game.
 if (boardConfigForm) {
   boardConfigForm.addEventListener('submit', async (e) => {
     e.preventDefault();
-    let gameInfo = new GameInfo();
     const formData = new FormData(e.target);
-    gameInfo.round_timer_duration = Number(formData.get('timer'));
-    gameInfo.hourglass_duration = Number(formData.get('hourglass'));
     state.game.playerName = String(formData.get('playerName') || 'Spieler 1');
     if (state.playerInfo) state.playerInfo.player_name = state.game.playerName;
     renderPlayerName();
     if (!state.gameInfo) {
       const lobbyMsg = document.getElementById('lobby-msg');
       if (lobbyMsg) lobbyMsg.textContent = 'Bitte zuerst mit "Create game" ein Spielbrett erstellen.';
+      return;
+    }
+    if (!state.playerInfo || state.playerInfo.player_id !== state.gameInfo.game_master_id) {
+      const lobbyMsg = document.getElementById('lobby-msg');
+      if (lobbyMsg) lobbyMsg.textContent = 'Nur der Spielleiter kann das Spiel starten.';
       return;
     }
     await sendStartGameToBackend();
@@ -159,6 +282,10 @@ if (createGame) {
   createGame.addEventListener('click', async (e) => {
     const lobbyMsg = document.getElementById('lobby-msg');
     try {
+      if (state.gameInfo?.game_id) {
+        if (lobbyMsg) lobbyMsg.textContent = 'Du bist bereits in einem Spiel und kannst kein weiteres erstellen.';
+        return;
+      }
       if (lobbyMsg) lobbyMsg.textContent = 'Erstelle Spiel...';
       if (!state.playerInfo || !state.playerInfo.player_id) {
         await init();
@@ -179,35 +306,12 @@ if (createGame) {
       const selectedSides = getQuadrantSidesFromForm();
       await loadPlayablePreset('default', { quadrantSides: selectedSides });
       const data = await createGameRequest(state.playerInfo, state.finalBoardData, gameInfo.hourglass_duration, gameInfo.round_timer_duration);
-      //Object.assign(gameInfo, data);
-      gameInfo.game_id = data.game_id;
-      gameInfo.player_count = data.player_count;
-      gameInfo.game_master_id = data.game_master_id;
-      gameInfo.player_list = data.player_list;
-      gameInfo.board = data.board;
-      gameInfo.game_status = data.game_status;
-      gameInfo.bids = data.bids;
-      gameInfo.is_hourglass_running = data.is_hourglass_running;
-      gameInfo.hourglass_duration = data.hourglass_duration;
-      gameInfo.is_round_timer_running = data.is_round_timer_running;
-      gameInfo.round_timer_duration = data.round_timer_duration;
-      gameInfo.demonstrating_player_id = data.demonstrating_player_id;
-      gameInfo.demonstration_moves = data.demonstration_moves;
-      gameInfo.original_robots = data.original_robots;
-      gameInfo.robots = data.robots;
-      gameInfo.chips = data.chips;
-      gameInfo.goal_chip = data.goal_chip;
+      Object.assign(gameInfo, data);
       state.gameInfo = gameInfo;
       renderPlayerList(state.gameInfo);
-      location.hash = '#game';
-      if (state.playerInfo && state.gameInfo && state.playerInfo.player_id === state.gameInfo.game_master_id) {
-        createGame.disabled = true;
-        createGame.classList.add('disabled');
-      }
+      updateLobbyActionButtons();
       if (data && data.game_id) connectNotificationWebsocket(data.game_id);
-      if (lobbyMsg) lobbyMsg.textContent = `Spiel erstellt. Spiel-ID: ${data.game_id}`;
-      startRound();
-      await sendStartGameToBackend();
+      if (lobbyMsg) lobbyMsg.textContent = `Spiel erstellt. Spiel-ID: ${data.game_id}. Der Spielleiter kann das Spiel jetzt starten.`;
     } catch (err) {
       if (lobbyMsg) lobbyMsg.textContent = `Create game fehlgeschlagen: ${err.message || err}`;
       console.error(err.message || err);
@@ -220,40 +324,65 @@ if (createGame) {
 // Join game flow (existing game ID from input field).
 if (joinGame) {
   joinGame.addEventListener('click', async (e) => {
+    const lobbyMsg = document.getElementById('lobby-msg');
     try {
-      const enteredGameId = document.querySelector('input[name="join-via-game-id"]').value.trim();
-      if (!enteredGameId) return console.warn('No game id provided');
+      if (state.gameInfo?.game_id) {
+        if (lobbyMsg) lobbyMsg.textContent = 'Du bist bereits in einem Spiel und kannst keinem weiteren beitreten.';
+        return;
+      }
+      const enteredGameId = String(joinGameIdInput?.value || '').trim();
+      if (!enteredGameId) {
+        if (lobbyMsg) lobbyMsg.textContent = 'Bitte gib eine Spiel-ID ein.';
+        return;
+      }
+      if (!state.playerInfo || !state.playerInfo.player_id) {
+        await init();
+      }
       const data = await joinGameRequest(enteredGameId, state.playerInfo);
       if (data && data.game_id) {
-        state.gameInfo = new GameInfo(
-          data.game_id,
-          data.player_count,
-          data.game_master_id,
-          data.player_list,
-          data.board,
-          data.game_status,
-          data.bids,
-          data.is_hourglass_running,
-          data.hourglass_duration,
-          data.is_round_timer_running,
-          data.round_timer_duration,
-          data.demonstrating_player_id,
-          data.demonstration_moves,
-          data.original_robots,
-          data.robots,
-          data.chips,
-          data.goal_chip
-        );
+        state.gameInfo = Object.assign(new GameInfo(), data);
+        state.finalBoardData = data.board?.board_data || state.finalBoardData;
+        state.game.robots = Array.isArray(data.robots)
+          ? data.robots.map((robot) => ({
+            id: String(robot.id),
+            x: Number(robot.x),
+            y: Number(robot.y)
+          }))
+          : [];
+        if (!state.game.robots.some((robot) => robot.id === state.game.activeRobotId)) {
+          state.game.activeRobotId = state.game.robots[0]?.id || null;
+        }
+        state.game.chips = Array.isArray(data.chips) ? data.chips : [];
+        state.game.target = data.goal_chip || null;
+        rememberRoundStartRobots(Array.isArray(data.original_robots) && data.original_robots.length ? data.original_robots : state.game.robots);
         renderPlayerList(state.gameInfo);
+        updateLobbyActionButtons();
+        if (data.game_status === 1) {
+          startRound();
+          show('game');
+          location.hash = '#game';
+        } else if (lobbyMsgEl) {
+          lobbyMsgEl.textContent = `Spiel beigetreten. Warte auf den Spielstart durch den Spielleiter.`;
+        }
+        connectNotificationWebsocket(data.game_id);
       }
-      const gameId = data && data.game_id ? data.game_id : enteredGameId;
-      connectNotificationWebsocket(gameId);
     } catch (err) {
+      if (lobbyMsg) lobbyMsg.textContent = err.message || String(err);
       console.error(err.message || err);
     }
   });
 } else {
   console.warn('join-game element not found; click handler not attached');
+}
+
+if (joinGameIdInput) {
+  joinGameIdInput.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter') return;
+    e.preventDefault();
+    if (joinGame && !joinGame.disabled) {
+      joinGame.click();
+    }
+  });
 }
 
 // Submit bid from game view input.
@@ -277,6 +406,7 @@ if (makeBet) {
 
 // Board click = select robot if you clicked on one.
 document.getElementById('board').addEventListener('click', (e) => {
+  if (isBoardInteractionLocked()) return;
   const cell = e.target.closest('.cell');
   if (!cell) return;
   const x = parseInt(cell.dataset.x, 10);
@@ -295,6 +425,7 @@ document.getElementById('board').addEventListener('click', (e) => {
 // - arrow keys slide active robot
 window.addEventListener('keydown', (e) => {
   if (location.hash !== '#game') return;
+  if (isBoardInteractionLocked()) return;
   const robotIds = ['red', 'blue', 'green', 'yellow'];
   const keyIndex = parseInt(e.key, 10) - 1;
   if (keyIndex >= 0 && keyIndex < robotIds.length) {
@@ -311,6 +442,22 @@ window.addEventListener('keydown', (e) => {
   }
 });
 
+if (playAgainButton) {
+  playAgainButton.addEventListener('click', () => {
+    state.game.endGame.userChoice = 'play_again';
+    updateReplayChoiceButtons('play_again');
+    sendReplayChoice('play_again');
+  });
+}
+
+if (leaveAfterGameButton) {
+  leaveAfterGameButton.addEventListener('click', () => {
+    state.game.endGame.userChoice = 'leave';
+    updateReplayChoiceButtons('leave');
+    sendReplayChoice('leave');
+  });
+}
+
 // Dedicated listener used by mouse/keyboard events.
 window.addEventListener('renderRobots', () => {
   import('./ui.js').then(mod => mod.renderRobots()).catch(() => { });
@@ -325,6 +472,10 @@ function syncViewFromHash() {
     if (lobbyMsg) lobbyMsg.textContent = 'Bitte zuerst "Create game" klicken, damit ein Spielbrett erzeugt wird.';
     location.hash = '#lobby';
     show('lobby');
+    return;
+  }
+  if (view === 'game-over' && !state.game.endGame.standings.length) {
+    location.hash = state.gameInfo ? '#game' : '#lobby';
     return;
   }
   show(view);

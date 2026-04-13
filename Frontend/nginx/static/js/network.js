@@ -1,4 +1,5 @@
 import { state } from './state.js';
+import { updateLobbyActionButtons } from './main.js';
 import {
   renderPlayerList,
   renderPlayerName,
@@ -8,12 +9,104 @@ import {
   startRoundTimer,
   stopHourglassTimer,
   stopRoundTimer,
+  stopEndGameCountdown,
   show,
-  renderRobots
+  renderRobots,
+  showGameModal,
+  playOptimalSolution,
+  rememberRoundStartRobots,
+  showSolutionLoading,
+  hideSolutionLoading,
+  renderEndGameScreen,
+  renderEndGameStandings
 } from './ui.js';
 
-// Single websocket instance for game notifications.
 let ws = null;
+
+function remainingSecondsFromEndsAt(endsAt, fallbackSeconds = 0) {
+  const endTimestamp = Number(endsAt);
+  if (!Number.isFinite(endTimestamp) || endTimestamp <= 0) {
+    return Math.max(0, Number(fallbackSeconds) || 0);
+  }
+  return Math.max(0, Math.ceil(endTimestamp - (Date.now() / 1000)));
+}
+
+function normalizeRobots(robots) {
+  return Array.isArray(robots)
+    ? robots.map((robot) => ({
+      ...robot,
+      id: String(robot.id),
+      x: Number(robot.x),
+      y: Number(robot.y)
+    }))
+    : [];
+}
+
+function resetEndGameState() {
+  state.game.endGame = {
+    standings: [],
+    replayVotes: {},
+    replayDurationSeconds: 0,
+    userChoice: null
+  };
+}
+
+function applyGameSnapshot(game) {
+  state.gameInfo = game;
+  state.finalBoardData = game.board.board_data;
+  const snapshotRobots = normalizeRobots(game.robots?.length ? game.robots : game.original_robots);
+  if (snapshotRobots.length) {
+    state.game.robots = snapshotRobots;
+    rememberRoundStartRobots(game.original_robots?.length ? game.original_robots : state.game.robots);
+  }
+  state.game.chips = Array.isArray(game.chips) ? game.chips : [];
+  state.game.target = game.goal_chip || null;
+  if (!state.game.robots.some((robot) => robot.id === state.game.activeRobotId)) {
+    state.game.activeRobotId = state.game.robots[0]?.id || null;
+  }
+  updateLobbyActionButtons();
+}
+
+function syncActiveTimers(game) {
+  stopRoundTimer();
+  stopHourglassTimer();
+
+  if (!game || game.game_status !== 1) {
+    return;
+  }
+
+  if (game.is_hourglass_running) {
+    startHourglassTimer(remainingSecondsFromEndsAt(game.hourglass_ends_at, game.hourglass_duration));
+    return;
+  }
+
+  if (game.is_round_timer_running) {
+    startRoundTimer(remainingSecondsFromEndsAt(game.round_timer_ends_at, Number(game.round_timer_duration) * 60));
+  }
+}
+
+function applyAndRenderGameSnapshot(game, { forceShowGame = false } = {}) {
+  if (!game) return;
+  applyGameSnapshot(game);
+  syncActiveTimers(game);
+
+  renderPlayerName();
+  renderPlayerList(state.gameInfo);
+
+  if (game.game_status === 1) {
+    startRound();
+    if (forceShowGame) {
+      show('game');
+      location.hash = '#game';
+    }
+  }
+}
+
+async function playRoundSolution(solution) {
+  if (Array.isArray(solution) && solution.length) {
+    await playOptimalSolution(solution);
+  }
+}
 
 export function sendSocketMessage(type, payload) {
   if (ws && ws.readyState === WebSocket.OPEN) {
@@ -23,137 +116,196 @@ export function sendSocketMessage(type, payload) {
   }
 }
 
-// Handle server events and sync local UI/state.
-export function handleNotificationMessage(message) {
+export function sendReplayChoice(choice) {
+  state.game.endGame.userChoice = choice;
+  sendSocketMessage('replay_choice', { choice });
+}
+
+export async function handleNotificationMessage(message) {
   console.log('Received notification:', message);
   switch (message.type) {
+    case 'game_state_sync':
+      hideSolutionLoading();
+      stopEndGameCountdown();
+      if (message.payload) {
+        applyAndRenderGameSnapshot(message.payload, { forceShowGame: message.payload.game_status === 1 });
+      }
+      break;
     case 'player_joined':
       if (message.payload && message.payload.player) {
-        console.log(`Player joined: ${message.payload.player.player_name}`);
         if (state.gameInfo && state.gameInfo.player_list) {
           state.gameInfo.player_list.push(message.payload.player);
           renderPlayerList(state.gameInfo);
         }
       }
       break;
+    case 'player_left':
+      if (state.gameInfo?.player_list) {
+        state.gameInfo.player_list = state.gameInfo.player_list.filter((player) => player.player_id !== message.payload?.player_id);
+        if (message.payload?.game_master_id) {
+          state.gameInfo.game_master_id = message.payload.game_master_id;
+        }
+        state.gameInfo.player_count = state.gameInfo.player_list.length;
+        updateLobbyActionButtons();
+        renderPlayerList(state.gameInfo);
+      }
+      break;
     case 'game_started':
+      hideSolutionLoading();
+      stopEndGameCountdown();
+      resetEndGameState();
       if (message.payload) {
-        const game = message.payload;
-        console.log(`Game update: ${game.game_status}`);
-        state.gameInfo = game;
-        state.finalBoardData = game.board.board_data;
-        if (game.goal_chip) {
-          state.game.target = game.goal_chip;
-        }
-
-        if (game.game_status === 1) {
-          renderPlayerName();
-          startRound();
-          show('game');
-          location.hash = '#game';
-        }
+        applyAndRenderGameSnapshot(message.payload, { forceShowGame: true });
       }
       break;
     case 'bid_made':
       if (message.payload) {
         const game = message.payload;
-        console.log(`Game update: ${game.bid}`);
-        // TODO start local timer and show bid info in UI
         state.gameInfo = game;
-        startHourglassTimer();
         renderBidList(state.gameInfo);
       }
       break;
     case 'hourglass_started':
       if (message.payload) {
         stopRoundTimer();
-        startHourglassTimer(message.payload.duration_seconds);
+        startHourglassTimer(remainingSecondsFromEndsAt(message.payload.ends_at, message.payload.duration_seconds));
       }
       break;
     case 'hourglass_ended':
       stopHourglassTimer();
+      showSolutionLoading('Der Backend-Server prueft den Rundenausgang und berechnet bei Bedarf die beste Loesung.', 'Bitte warten');
       break;
     case 'demonstration_started':
-      console.log('Demonstration started', message.payload);
+      hideSolutionLoading();
       state.gameInfo.demonstrating_player_id = message.payload.player_id;
       if (message.payload.robots) {
-        state.game.robots = message.payload.robots;
+        state.game.robots = normalizeRobots(message.payload.robots);
+        rememberRoundStartRobots(state.game.robots);
         renderRobots();
       }
       window.dispatchEvent(new Event('demonstration_started_event'));
       break;
-    case 'robot_moved':
+    case 'robot_moved': {
       const move = message.payload;
       if (state.playerInfo.player_id !== state.gameInfo.demonstrating_player_id) {
-        const robot = state.game.robots.find(r => r.id === move.robot_id || r.color === move.robot_id);
+        const robot = state.game.robots.find((r) => r.id === move.robot_id || r.color === move.robot_id);
         if (robot) {
-          robot.x = move.newX;
-          robot.y = move.newY;
+          robot.x = Number(move.newX);
+          robot.y = Number(move.newY);
           renderRobots();
         }
       }
       break;
+    }
     case 'demonstration_success':
+      hideSolutionLoading();
       if (message.payload) {
         const payload = message.payload;
-        console.log('Demonstration success', payload);
         Object.assign(state.gameInfo, payload.game);
-        state.game.robots = payload.robots;
+        state.game.robots = normalizeRobots(payload.robots);
+        rememberRoundStartRobots(payload.robots);
         state.game.chips = payload.targets;
-        alert(`Demonstration succesful! Chip awarded to ${payload.winner_name}. The game master will start the next round by clicking on okay.`);
-        if (state.playerInfo.player_id === state.gameInfo.game_master_id) {
-          sendStartGameToBackend();
+
+        let msg = `Demonstration succesful. Chip awarded to ${payload.winner_name}.`;
+        if (payload.solution && typeof payload.solution === 'string') {
+          msg += `\nBackend calculated solution: ${payload.solution}`;
+        } else if (Array.isArray(payload.solution)) {
+          msg += `\nFun Fact: The backend found an optimal solution in ${payload.solution.length} moves.`;
         }
+
+        void showGameModal(msg, 'Round Result', 2200);
+        await playRoundSolution(payload.solution);
       }
       break;
     case 'demonstration_failed':
-      console.log('Demonstration failed', message.payload);
+      hideSolutionLoading();
       if (message.payload.robots) {
-        state.game.robots = message.payload.robots;
+        state.game.robots = normalizeRobots(message.payload.robots);
+        rememberRoundStartRobots(state.game.robots);
         renderRobots();
       }
-      alert('Demonstration failed! ' + (message.payload.message || 'Next player...'));
-      if (state.playerInfo.player_id === state.gameInfo.game_master_id) {
-        sendStartGameToBackend();
+
+      {
+        let failMsg = `Demonstration failed. ${message.payload.message || 'Next player...'}`;
+        if (message.payload.solution && typeof message.payload.solution === 'string') {
+          failMsg += `\nBackend solution: ${message.payload.solution}`;
+        } else if (Array.isArray(message.payload.solution)) {
+          failMsg += `\nThe optimal solution actually takes ${message.payload.solution.length} moves.`;
+        }
+
+        void showGameModal(failMsg, 'Round Result', 2200);
+        await playRoundSolution(message.payload.solution);
       }
       break;
     case 'round_timer_started':
       if (message.payload) {
-        startRoundTimer(message.payload.duration_seconds);
+        startRoundTimer(remainingSecondsFromEndsAt(message.payload.ends_at, message.payload.duration_seconds));
       }
       break;
     case 'round_failed':
+      hideSolutionLoading();
       if (message.payload) {
         const game = message.payload;
-        console.log('Round failed', message.payload);
-        state.gameInfo = game;
-        state.game.robots = game.original_robots;
+        applyGameSnapshot(game);
         stopRoundTimer();
         stopHourglassTimer();
-        alert("No bids were made in time! The game master will start the next round by clicking okay.");
-        if (state.playerInfo.player_id === state.gameInfo.game_master_id) {
-          sendStartGameToBackend();
+
+        let emptyMsg = 'No bids were made in time.';
+        if (game.solution && typeof game.solution === 'string') {
+          emptyMsg += `\nBackend solution: ${game.solution}`;
+        } else if (Array.isArray(game.solution)) {
+          emptyMsg += `\nBy the way, the optimal solution was ${game.solution.length} moves.`;
         }
+
+        void showGameModal(emptyMsg, 'Round Result', 2200);
+        await playRoundSolution(game.solution);
       }
       break;
     case 'end_game':
+      hideSolutionLoading();
+      stopRoundTimer();
+      stopHourglassTimer();
       if (message.payload) {
-        const winners = message.payload;
-        console.log(winners);
-        stopRoundTimer();
-        stopHourglassTimer();
-        // TODO when winners is empty -> show no winners screen
-        // TODO when winners contains one player -> show one winner screen
-        // TODO when winners containes multiple players -> list players screen
+        state.game.endGame.standings = Array.isArray(message.payload.standings) ? message.payload.standings : [];
+        state.game.endGame.replayVotes = message.payload.replay_votes || {};
+        state.game.endGame.replayDurationSeconds = Number(message.payload.replay_duration_seconds) || 0;
+        state.game.endGame.userChoice = null;
+        renderEndGameScreen({
+          standings: state.game.endGame.standings,
+          replayVotes: state.game.endGame.replayVotes,
+          replayDurationSeconds: state.game.endGame.replayDurationSeconds,
+          winnerNames: Array.isArray(message.payload.winner_names) ? message.payload.winner_names : []
+        });
+        show('game-over');
+        location.hash = '#game-over';
       }
+      break;
+    case 'replay_vote_updated':
+      if (message.payload) {
+        state.game.endGame.replayVotes = message.payload.replay_votes || {};
+        renderEndGameStandings(state.game.endGame.standings, state.game.endGame.replayVotes);
+      }
+      break;
+    case 'replay_vote_result':
+      if (message.payload && state.gameInfo) {
+        state.gameInfo.game_master_id = message.payload.game_master_id;
+        updateLobbyActionButtons();
+      }
+      break;
+    case 'removed_from_game':
+      stopEndGameCountdown();
+      resetEndGameState();
+      state.gameInfo = null;
+      updateLobbyActionButtons();
+      show('lobby');
+      location.hash = '#lobby';
       break;
     default:
       break;
   }
 }
 
-// Start game request (only game master should trigger this).
-export async function sendStartGameToBackend() {
+export async function sendStartGameToBackend(original_robots = state.game.robots) {
   try {
     if (!state.gameInfo || !state.gameInfo.game_id || !state.playerInfo || !state.playerInfo.player_id) {
       console.warn('Cannot start game: missing gameInfo or playerInfo');
@@ -163,11 +315,14 @@ export async function sendStartGameToBackend() {
       console.warn('Only the game master can start the game');
       return;
     }
+    const startRobots = Array.isArray(original_robots) && original_robots.length
+      ? original_robots
+      : state.game.roundStartRobots;
     const response = await fetch(`/api/games/${encodeURIComponent(state.gameInfo.game_id)}/start?player_id=${encodeURIComponent(state.playerInfo.player_id)}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        original_robots: state.game.robots,
+        original_robots: startRobots,
         target: state.game.target
       })
     });
@@ -181,7 +336,6 @@ export async function sendStartGameToBackend() {
   }
 }
 
-// Open/replace websocket connection for one game ID.
 export function connectNotificationWebsocket(gameId) {
   if (!state.playerInfo || !state.playerInfo.player_id) {
     console.warn('Cannot open websocket: missing playerInfo');
@@ -195,7 +349,7 @@ export function connectNotificationWebsocket(gameId) {
   const wsUrl = `${wsProtocol}://${location.host}/api/ws/games/${gameId}/${state.playerInfo.player_id}`;
   ws = new WebSocket(wsUrl);
   ws.addEventListener('open', () => { console.log('WebSocket connection established', wsUrl); });
-  ws.addEventListener('message', (event) => {
+  ws.addEventListener('message', async (event) => {
     let message;
     try {
       message = JSON.parse(event.data);
@@ -204,7 +358,7 @@ export function connectNotificationWebsocket(gameId) {
       return;
     }
     try {
-      handleNotificationMessage(message);
+      await handleNotificationMessage(message);
     } catch (err) {
       console.error('Error handling websocket message:', err);
     }
@@ -213,11 +367,10 @@ export function connectNotificationWebsocket(gameId) {
   ws.addEventListener('error', (err) => { console.error('WebSocket error', err); });
 }
 
-// Create a game using current player and generated board.
 export async function createGameRequest(playerInfo, finalBoardData, hourglassDuration, roundTimerDuration) {
-  const response = await fetch("/api/games", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
+  const response = await fetch('/api/games', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ player_info: playerInfo, board_configuration: { board_size: state.BOARD_SIZE, board_data: finalBoardData }, hourglass_duration: hourglassDuration, round_timer_duration: roundTimerDuration, chips: state.game.chips || [] })
   });
   if (!response.ok) {
@@ -227,7 +380,6 @@ export async function createGameRequest(playerInfo, finalBoardData, hourglassDur
   return response.json();
 }
 
-// Load a backend-generated playable board based on selected quadrant sides.
 export async function fetchPlayableBoardRequest(presetName = 'default', quadrantSides = {}) {
   const params = new URLSearchParams();
   if (quadrantSides.block1) params.set('block1_side', String(quadrantSides.block1));
@@ -248,28 +400,35 @@ export async function fetchPlayableBoardRequest(presetName = 'default', quadrant
   return response.json();
 }
 
-// Join an existing game by ID.
 export async function joinGameRequest(enteredGameId, playerInfo) {
   const response = await fetch(`/api/games/${enteredGameId}/players`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(playerInfo)
   });
   if (!response.ok) {
     const text = await response.text();
     throw new Error(`Join game failed: ${response.status} ${text}`);
   }
-  return response.json();
+  const data = await response.json();
+  if (data?.Wrong === 'game_id') {
+    throw new Error('Kein Spiel mit dieser Spiel-ID gefunden.');
+  }
+  if (data?.Player === 'Already in Game') {
+    throw new Error('Du bist bereits in diesem Spiel.');
+  }
+  if (!data?.game_id) {
+    throw new Error('Spiel konnte nicht beigetreten werden.');
+  }
+  return data;
 }
 
-// Submit a bid (number of moves) for the active game.
 export async function sendBidRequest(gameId, playerId, bid, robots) {
   const response = await fetch(`/api/games/${gameId}/bids`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ player_id: playerId, number_of_moves: bid, robots: robots })
   });
-  //TODO handle response and errors properly, maybe show some UI feedback
   if (!response.ok) {
     const text = await response.text();
     throw new Error(`Bid request failed: ${response.status} ${text}`);

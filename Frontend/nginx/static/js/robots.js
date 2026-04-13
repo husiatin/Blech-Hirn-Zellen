@@ -1,6 +1,6 @@
 import { state } from './state.js';
 import { WALLS } from './constants.js';
-import { renderRobots } from './ui.js';
+import { isBoardInteractionLocked, renderRobots } from './ui.js';
 import { sendSocketMessage } from './network.js';
 
 // Check if another robot is already on a cell.
@@ -11,6 +11,7 @@ export function isOccupied(x, y) {
 
 // Ricochet-style movement: keep moving in a direction until blocked.
 export function slide(dx, dy) {
+  if (isBoardInteractionLocked()) return;
   const activeRobot = state.game.robots.find(r => r.id === state.game.activeRobotId);
   if (!activeRobot) return;
   const boardSize = state.finalBoardData.length;

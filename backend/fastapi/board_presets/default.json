@@ -7,19 +7,19 @@
     "block1": {
       "A": {
         "vertical": [
-          [1, 0],
+          [5, 0],
           [2, 1],
-          [6, 3],
-          [0, 4],
-          [4, 6],
+          [4, 3],
+          [6, 4],
+          [2, 5],
           [6, 7]
         ],
         "horizontal": [
           [3, 0],
-          [6, 3],
-          [1, 4],
-          [4, 5],
-          [0, 6],
+          [4, 3],
+          [7, 4],
+          [0, 7],
+          [2, 5],
           [7, 6]
         ],
         "robots": [
@@ -39,28 +39,28 @@
             "y": 1
           },
           {
-            "id": "block1_a_blue_star_1_4",
+            "id": "block1_a_blue_star_7_4",
             "robot_id": "blue",
             "color": "blue",
             "symbol": "star",
-            "x": 1,
+            "x": 7,
             "y": 4
           },
           {
-            "id": "block1_a_green_cog_6_3",
+            "id": "block1_a_green_cog_4_3",
             "robot_id": "green",
             "color": "green",
             "symbol": "cog",
-            "x": 6,
+            "x": 4,
             "y": 3
           },
           {
-            "id": "block1_a_yellow_pentagon_4_6",
+            "id": "block1_a_yellow_pentagon_2_5",
             "robot_id": "yellow",
             "color": "yellow",
             "symbol": "pentagon",
-            "x": 4,
-            "y": 6
+            "x": 2,
+            "y": 5
           }
         ],
         "targets": [
@@ -71,40 +71,40 @@
             "y": 1
           },
           {
-            "id": "block1_a_blue_star_1_4_target",
+            "id": "block1_a_blue_star_7_4_target",
             "robot_id": "blue",
-            "x": 1,
+            "x": 7,
             "y": 4
           },
           {
-            "id": "block1_a_green_cog_6_3_target",
+            "id": "block1_a_green_cog_4_3_target",
             "robot_id": "green",
-            "x": 6,
+            "x": 4,
             "y": 3
           },
           {
-            "id": "block1_a_yellow_pentagon_4_6_target",
+            "id": "block1_a_yellow_pentagon_2_5_target",
             "robot_id": "yellow",
-            "x": 4,
-            "y": 6
+            "x": 2,
+            "y": 5
           }
         ]
       },
       "B": {
         "vertical": [
-          [1, 0],
-          [4, 1],
+          [3, 0],
+          [4, 2],
           [0, 3],
-          [4, 5],
-          [3, 6],
+          [3, 5],
+          [4, 6],
           [6, 7]
         ],
         "horizontal": [
-          [4, 0],
+          [5, 2],
           [1, 3],
-          [5, 4],
-          [0, 5],
-          [3, 6],
+          [0, 4],
+          [3, 5],
+          [5, 5],
           [7, 6]
         ],
         "robots": [
@@ -116,62 +116,62 @@
         ],
         "chips": [
           {
-            "id": "block1_b_red_circle_4_1",
+            "id": "block1_b_red_circle_5_2",
             "robot_id": "red",
             "color": "red",
             "symbol": "circle",
-            "x": 4,
-            "y": 1
+            "x": 5,
+            "y": 2
           },
           {
-            "id": "block1_b_blue_cog_1_3",
+            "id": "block1_b_blue_star_5_6",
             "robot_id": "blue",
             "color": "blue",
+            "symbol": "star",
+            "x": 5,
+            "y": 6
+          },
+          {
+            "id": "block1_b_green_cog_1_3",
+            "robot_id": "green",
+            "color": "green",
             "symbol": "cog",
             "x": 1,
             "y": 3
           },
           {
-            "id": "block1_b_green_pentagon_5_5",
-            "robot_id": "green",
-            "color": "green",
-            "symbol": "pentagon",
-            "x": 5,
-            "y": 5
-          },
-          {
-            "id": "block1_b_yellow_star_3_6",
+            "id": "block1_b_yellow_pentagon_3_5",
             "robot_id": "yellow",
             "color": "yellow",
-            "symbol": "star",
+            "symbol": "pentagon",
             "x": 3,
-            "y": 6
+            "y": 5
           }
         ],
         "targets": [
           {
-            "id": "block1_b_red_circle_4_1_target",
+            "id": "block1_b_red_circle_5_2_target",
             "robot_id": "red",
-            "x": 4,
-            "y": 1
+            "x": 5,
+            "y": 2
           },
           {
-            "id": "block1_b_blue_cog_1_3_target",
+            "id": "block1_b_blue_star_5_6_target",
             "robot_id": "blue",
+            "x": 5,
+            "y": 6
+          },
+          {
+            "id": "block1_b_green_cog_1_3_target",
+            "robot_id": "green",
             "x": 1,
             "y": 3
           },
           {
-            "id": "block1_b_green_pentagon_5_5_target",
-            "robot_id": "green",
-            "x": 5,
-            "y": 5
-          },
-          {
-            "id": "block1_b_yellow_star_3_6_target",
+            "id": "block1_b_yellow_pentagon_3_5_target",
             "robot_id": "yellow",
             "x": 3,
-            "y": 6
+            "y": 5
           }
         ]
       }
@@ -179,20 +179,19 @@
     "block2": {
       "A": {
         "vertical": [
-          [0, 0],
+          [1, 0],
           [4, 1],
           [1, 2],
-          [3, 5],
-          [5, 6],
-          [0, 7],
-          [1, 7]
+          [4, 3],
+          [3, 6],
+          [0, 7]
         ],
         "horizontal": [
-          [4, 1],
-          [2, 2],
-          [7, 3],
-          [3, 4],
-          [6, 5],
+          [5, 0],
+          [1, 1],
+          [7, 2],
+          [4, 3],
+          [4, 5],
           [0, 6],
           [2, 7]
         ],
@@ -205,83 +204,83 @@
         ],
         "chips": [
           {
-            "id": "block2_a_red_pentagon_4_1",
+            "id": "block2_a_red_pentagon_5_1",
             "robot_id": "red",
             "color": "red",
             "symbol": "pentagon",
-            "x": 4,
+            "x": 5,
             "y": 1
           },
           {
-            "id": "block2_a_blue_circle_2_2",
+            "id": "block2_a_blue_circle_4_3",
             "robot_id": "blue",
             "color": "blue",
             "symbol": "circle",
-            "x": 2,
-            "y": 2
+            "x": 4,
+            "y": 3
           },
           {
-            "id": "block2_a_green_star_3_5",
+            "id": "block2_a_green_star_1_2",
             "robot_id": "green",
             "color": "green",
             "symbol": "star",
-            "x": 3,
-            "y": 5
+            "x": 1,
+            "y": 2
           },
           {
-            "id": "block2_a_yellow_cog_6_6",
+            "id": "block2_a_yellow_cog_4_6",
             "robot_id": "yellow",
             "color": "yellow",
             "symbol": "cog",
-            "x": 6,
+            "x": 4,
             "y": 6
           }
         ],
         "targets": [
           {
-            "id": "block2_a_red_pentagon_4_1_target",
+            "id": "block2_a_red_pentagon_5_1_target",
             "robot_id": "red",
-            "x": 4,
+            "x": 5,
             "y": 1
           },
           {
-            "id": "block2_a_blue_circle_2_2_target",
+            "id": "block2_a_blue_circle_4_3_target",
             "robot_id": "blue",
-            "x": 2,
+            "x": 4,
+            "y": 3
+          },
+          {
+            "id": "block2_a_green_star_1_2_target",
+            "robot_id": "green",
+            "x": 1,
             "y": 2
           },
           {
-            "id": "block2_a_green_star_3_5_target",
-            "robot_id": "green",
-            "x": 3,
-            "y": 5
-          },
-          {
-            "id": "block2_a_yellow_cog_6_6_target",
+            "id": "block2_a_yellow_cog_4_6_target",
             "robot_id": "yellow",
-            "x": 6,
+            "x": 4,
             "y": 6
           }
         ]
       },
       "B": {
         "vertical": [
-          [3, 0],
+          [2, 0],
           [1, 1],
-          [2, 3],
+          [1, 3],
           [5, 5],
           [2, 6],
           [0, 7],
-          [4, 7]
+          [3, 7]
         ],
         "horizontal": [
           [1, 1],
           [7, 2],
-          [3, 3],
+          [2, 3],
           [6, 4],
           [2, 5],
           [0, 6],
-          [5, 7]
+          [4, 7]
         ],
         "robots": [
           {
@@ -292,62 +291,62 @@
         ],
         "chips": [
           {
-            "id": "block2_b_red_star_1_1",
+            "id": "block2_b_red_pentagon_1_1",
             "robot_id": "red",
             "color": "red",
-            "symbol": "star",
+            "symbol": "pentagon",
             "x": 1,
             "y": 1
           },
           {
-            "id": "block2_b_blue_circle_3_3",
+            "id": "block2_b_blue_circle_2_3",
             "robot_id": "blue",
             "color": "blue",
             "symbol": "circle",
-            "x": 3,
+            "x": 2,
             "y": 3
           },
           {
-            "id": "block2_b_green_cog_6_5",
+            "id": "block2_b_green_star_2_6",
             "robot_id": "green",
             "color": "green",
+            "symbol": "star",
+            "x": 2,
+            "y": 6
+          },
+          {
+            "id": "block2_b_yellow_cog_6_5",
+            "robot_id": "yellow",
+            "color": "yellow",
             "symbol": "cog",
             "x": 6,
             "y": 5
-          },
-          {
-            "id": "block2_b_yellow_pentagon_2_6",
-            "robot_id": "yellow",
-            "color": "yellow",
-            "symbol": "pentagon",
-            "x": 2,
-            "y": 6
           }
         ],
         "targets": [
           {
-            "id": "block2_b_red_star_1_1_target",
+            "id": "block2_b_red_pentagon_1_1_target",
             "robot_id": "red",
             "x": 1,
             "y": 1
           },
           {
-            "id": "block2_b_blue_circle_3_3_target",
+            "id": "block2_b_blue_circle_2_3_target",
             "robot_id": "blue",
-            "x": 3,
+            "x": 2,
             "y": 3
           },
           {
-            "id": "block2_b_green_cog_6_5_target",
+            "id": "block2_b_green_star_2_6_target",
             "robot_id": "green",
-            "x": 6,
-            "y": 5
-          },
-          {
-            "id": "block2_b_yellow_pentagon_2_6_target",
-            "robot_id": "yellow",
             "x": 2,
             "y": 6
+          },
+          {
+            "id": "block2_b_yellow_cog_6_5_target",
+            "robot_id": "yellow",
+            "x": 6,
+            "y": 5
           }
         ]
       }
@@ -356,84 +355,84 @@
       "A": {
         "vertical": [
           [6, 0],
-          [3, 2],
-          [5, 3],
-          [1, 4],
-          [3, 5],
-          [3, 7]
+          [2, 0],
+          [4, 2],
+          [5, 4],
+          [1, 5],
+          [4, 7]
         ],
         "horizontal": [
           [7, 0],
-          [0, 1],
-          [3, 2],
-          [5, 2],
-          [2, 4],
-          [4, 4]
+          [2, 0],
+          [4, 2],
+          [0, 3],
+          [5, 3],
+          [2, 4]
         ],
         "robots": [
           {
             "id": "green",
-            "x": 6,
-            "y": 5
+            "x": 5,
+            "y": 6
           }
         ],
         "chips": [
           {
-            "id": "block3_a_red_cog_3_2",
+            "id": "block3_a_red_cog_4_2",
             "robot_id": "red",
             "color": "red",
             "symbol": "cog",
-            "x": 3,
+            "x": 4,
             "y": 2
           },
           {
-            "id": "block3_a_blue_pentagon_5_3",
+            "id": "block3_a_blue_pentagon_5_4",
             "robot_id": "blue",
             "color": "blue",
             "symbol": "pentagon",
             "x": 5,
-            "y": 3
+            "y": 4
           },
           {
-            "id": "block3_a_green_circle_2_4",
+            "id": "block3_a_green_circle_2_0",
             "robot_id": "green",
             "color": "green",
             "symbol": "circle",
             "x": 2,
-            "y": 4
+            "y": 0
           },
           {
-            "id": "block3_a_yellow_star_4_5",
+            "id": "block3_a_yellow_star_2_5",
             "robot_id": "yellow",
             "color": "yellow",
             "symbol": "star",
-            "x": 4,
+            "x": 2,
             "y": 5
           }
         ],
         "targets": [
           {
-            "id": "block3_a_red_cog_3_2_target",
+            "id": "block3_a_red_cog_4_2_target",
             "robot_id": "red",
-            "x": 3,
+            "x": 4,
             "y": 2
           },
           {
-            "id": "block3_a_blue_pentagon_5_3_target",
+            "id": "block3_a_blue_pentagon_5_4_target",
             "robot_id": "blue",
             "x": 5,
-            "y": 3
-          },
-          {
-            "id": "block3_a_green_circle_2_4_target",
-            "robot_id": "green",
-            "x": 2,
             "y": 4
           },
           {
-            "id": "block3_a_yellow_star_4_5_target",
+            "id": "block3_a_green_circle_2_0_target",
+            "robot_id": "green",
+            "x": 2,
+            "y": 0
+          },
+          {
+            "id": "block3_a_yellow_star_2_5_target",
             "robot_id": "yellow",
-            "x": 4,
+            "x": 2,
             "y": 5
           }
         ]
@@ -441,18 +440,18 @@
       "B": {
         "vertical": [
           [6, 0],
-          [1, 1],
           [4, 1],
-          [6, 4],
+          [1, 2],
+          [5, 5],
           [1, 6],
           [5, 7]
         ],
         "horizontal": [
-          [1, 0],
-          [5, 0],
           [7, 0],
-          [0, 2],
-          [6, 4],
+          [5, 0],
+          [1, 1],
+          [0, 4],
+          [5, 5],
           [2, 6]
         ],
         "robots": [
@@ -464,62 +463,62 @@
         ],
         "chips": [
           {
-            "id": "block3_b_red_cog_1_1",
+            "id": "block3_b_red_cog_1_2",
             "robot_id": "red",
             "color": "red",
             "symbol": "cog",
             "x": 1,
-            "y": 1
+            "y": 2
           },
           {
-            "id": "block3_b_blue_pentagon_5_1",
+            "id": "block3_b_blue_pentagon_2_6",
             "robot_id": "blue",
             "color": "blue",
             "symbol": "pentagon",
-            "x": 5,
-            "y": 1
-          },
-          {
-            "id": "block3_b_green_star_6_4",
-            "robot_id": "green",
-            "color": "green",
-            "symbol": "star",
-            "x": 6,
-            "y": 4
-          },
-          {
-            "id": "block3_b_yellow_circle_2_6",
-            "robot_id": "yellow",
-            "color": "yellow",
-            "symbol": "circle",
             "x": 2,
             "y": 6
+          },
+          {
+            "id": "block3_b_green_circle_5_5",
+            "robot_id": "green",
+            "color": "green",
+            "symbol": "circle",
+            "x": 5,
+            "y": 5
+          },
+          {
+            "id": "block3_b_yellow_star_5_1",
+            "robot_id": "yellow",
+            "color": "yellow",
+            "symbol": "star",
+            "x": 5,
+            "y": 1
           }
         ],
         "targets": [
           {
-            "id": "block3_b_red_cog_1_1_target",
+            "id": "block3_b_red_cog_1_2_target",
             "robot_id": "red",
             "x": 1,
-            "y": 1
+            "y": 2
           },
           {
-            "id": "block3_b_blue_pentagon_5_1_target",
+            "id": "block3_b_blue_pentagon_2_6_target",
             "robot_id": "blue",
-            "x": 5,
-            "y": 1
-          },
-          {
-            "id": "block3_b_green_star_6_4_target",
-            "robot_id": "green",
-            "x": 6,
-            "y": 4
-          },
-          {
-            "id": "block3_b_yellow_circle_2_6_target",
-            "robot_id": "yellow",
             "x": 2,
             "y": 6
+          },
+          {
+            "id": "block3_b_green_circle_5_5_target",
+            "robot_id": "green",
+            "x": 5,
+            "y": 5
+          },
+          {
+            "id": "block3_b_yellow_star_5_1_target",
+            "robot_id": "yellow",
+            "x": 5,
+            "y": 1
           }
         ]
       }
@@ -528,84 +527,85 @@
       "A": {
         "vertical": [
           [0, 0],
-          [0, 2],
-          [4, 3],
-          [0, 5],
-          [6, 6],
-          [3, 7]
+          [1, 0],
+          [2, 2],
+          [6, 3],
+          [3, 5],
+          [0, 6],
+          [2, 7]
         ],
         "horizontal": [
           [0, 0],
-          [7, 1],
-          [0, 2],
-          [5, 2],
-          [1, 5],
-          [6, 5]
+          [7, 0],
+          [2, 2],
+          [6, 2],
+          [4, 5],
+          [0, 5]
         ],
         "robots": [
           {
             "id": "yellow",
-            "x": 5,
-            "y": 6
+            "x": 3,
+            "y": 4
           }
         ],
         "chips": [
           {
-            "id": "block4_a_red_star_0_2",
+            "id": "block4_a_red_star_2_2",
             "robot_id": "red",
             "color": "red",
             "symbol": "star",
-            "x": 0,
+            "x": 2,
             "y": 2
           },
           {
-            "id": "block4_a_blue_cog_5_3",
+            "id": "block4_a_blue_cog_6_3",
             "robot_id": "blue",
             "color": "blue",
             "symbol": "cog",
-            "x": 5,
+            "x": 6,
             "y": 3
           },
           {
-            "id": "block4_a_green_pentagon_1_5",
+            "id": "block4_a_green_pentagon_4_5",
             "robot_id": "green",
             "color": "green",
             "symbol": "pentagon",
-            "x": 1,
+            "x": 4,
             "y": 5
           },
           {
-            "id": "block4_a_yellow_circle_6_6",
+            "id": "block4_a_yellow_circle_0_6",
             "robot_id": "yellow",
             "color": "yellow",
             "symbol": "circle",
-            "x": 6,
+            "x": 0,
             "y": 6
           }
         ],
         "targets": [
           {
-            "id": "block4_a_red_star_0_2_target",
+            "id": "block4_a_red_star_2_2_target",
             "robot_id": "red",
-            "x": 0,
+            "x": 2,
             "y": 2
           },
           {
-            "id": "block4_a_blue_cog_5_3_target",
+            "id": "block4_a_blue_cog_6_3_target",
             "robot_id": "blue",
-            "x": 5,
+            "x": 6,
             "y": 3
           },
           {
-            "id": "block4_a_green_pentagon_1_5_target",
+            "id": "block4_a_green_pentagon_4_5_target",
             "robot_id": "green",
-            "x": 1,
+            "x": 4,
             "y": 5
           },
           {
-            "id": "block4_a_yellow_circle_6_6_target",
+            "id": "block4_a_yellow_circle_0_6_target",
             "robot_id": "yellow",
-            "x": 6,
+            "x": 0,
             "y": 6
           }
         ]
@@ -613,19 +613,19 @@
       "B": {
         "vertical": [
           [0, 0],
-          [4, 1],
+          [2, 1],
           [1, 3],
-          [6, 5],
-          [1, 6],
-          [3, 7]
+          [5, 4],
+          [0, 6],
+          [2, 7]
         ],
         "horizontal": [
           [0, 0],
-          [5, 1],
+          [3, 1],
           [7, 1],
           [1, 3],
-          [6, 4],
-          [2, 5]
+          [5, 4],
+          [1, 5]
         ],
         "robots": [
           {
@@ -636,61 +636,61 @@
         ],
         "chips": [
           {
-            "id": "block4_b_red_circle_5_1",
-            "robot_id": "red",
-            "color": "red",
-            "symbol": "circle",
-            "x": 5,
+            "id": "block4_b_green_pentagon_3_1",
+            "robot_id": "green",
+            "color": "green",
+            "symbol": "pentagon",
+            "x": 3,
             "y": 1
           },
           {
-            "id": "block4_b_blue_cog_1_3",
-            "robot_id": "blue",
-            "color": "blue",
-            "symbol": "cog",
+            "id": "block4_b_yellow_circle_1_3",
+            "robot_id": "yellow",
+            "color": "yellow",
+            "symbol": "circle",
             "x": 1,
             "y": 3
           },
           {
-            "id": "block4_b_green_pentagon_6_5",
-            "robot_id": "green",
-            "color": "green",
-            "symbol": "pentagon",
-            "x": 6,
-            "y": 5
+            "id": "block4_b_red_star_5_4",
+            "robot_id": "red",
+            "color": "red",
+            "symbol": "star",
+            "x": 5,
+            "y": 4
           },
           {
-            "id": "block4_b_yellow_star_2_6",
-            "robot_id": "yellow",
-            "color": "yellow",
-            "symbol": "star",
-            "x": 2,
+            "id": "block4_b_blue_cog_1_6",
+            "robot_id": "blue",
+            "color": "blue",
+            "symbol": "cog",
+            "x": 1,
             "y": 6
           }
         ],
         "targets": [
           {
-            "id": "block4_b_red_circle_5_1_target",
-            "robot_id": "red",
-            "x": 5,
+            "id": "block4_b_green_pentagon_3_1_target",
+            "robot_id": "green",
+            "x": 3,
             "y": 1
           },
           {
-            "id": "block4_b_blue_cog_1_3_target",
-            "robot_id": "blue",
+            "id": "block4_b_yellow_circle_1_3_target",
+            "robot_id": "yellow",
             "x": 1,
             "y": 3
           },
           {
-            "id": "block4_b_green_pentagon_6_5_target",
-            "robot_id": "green",
-            "x": 6,
-            "y": 5
+            "id": "block4_b_red_star_5_4_target",
+            "robot_id": "red",
+            "x": 5,
+            "y": 4
           },
           {
-            "id": "block4_b_yellow_star_2_6_target",
-            "robot_id": "yellow",
-            "x": 2,
+            "id": "block4_b_blue_cog_1_6_target",
+            "robot_id": "blue",
+            "x": 1,
             "y": 6
           }
         ]
