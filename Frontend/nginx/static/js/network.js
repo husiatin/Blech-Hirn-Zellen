@@ -18,7 +18,9 @@ import {
   showSolutionLoading,
   hideSolutionLoading,
   renderEndGameScreen,
-  renderEndGameStandings
+  renderEndGameStandings,
+  disableBidButton,
+  enableBidButton
 } from './ui.js';
 
 let ws = null;
@@ -151,6 +153,7 @@ export async function handleNotificationMessage(message) {
       }
       break;
     case 'game_started':
+      enableBidButton();
       hideSolutionLoading();
       stopEndGameCountdown();
       resetEndGameState();
@@ -176,6 +179,7 @@ export async function handleNotificationMessage(message) {
       showSolutionLoading('Der Backend-Server prueft den Rundenausgang und berechnet bei Bedarf die beste Loesung.', 'Bitte warten');
       break;
     case 'demonstration_started':
+      disableBidButton();
       hideSolutionLoading();
       state.gameInfo.demonstrating_player_id = message.payload.player_id;
       if (message.payload.robots) {
@@ -203,7 +207,6 @@ export async function handleNotificationMessage(message) {
         const payload = message.payload;
         Object.assign(state.gameInfo, payload.game);
         state.game.robots = normalizeRobots(payload.robots);
-        rememberRoundStartRobots(payload.robots);
         state.game.chips = payload.targets;
 
         let msg = `Demonstration succesful. Chip awarded to ${payload.winner_name}.`;
@@ -243,6 +246,7 @@ export async function handleNotificationMessage(message) {
       }
       break;
     case 'round_failed':
+      disableBidButton();
       hideSolutionLoading();
       if (message.payload) {
         const game = message.payload;

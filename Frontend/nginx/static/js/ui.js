@@ -27,7 +27,8 @@ import {
   gameOverTimer,
   gameOverPlayerList,
   playAgainButton,
-  leaveAfterGameButton
+  leaveAfterGameButton,
+  makeBet
 } from './dom.js';
 import { WALLS } from './constants.js';
 import { state } from './state.js';
@@ -469,6 +470,18 @@ export function renderBidList(gameInfo) {
     const li = document.createElement('li');
     li.textContent = `${name}: ${label} moves`;
     ul.appendChild(li);
+  }
+}
+
+export function disableBidButton() {
+  if (makeBet) {
+        makeBet.disabled = true;
+  }
+}
+
+export function enableBidButton() {
+  if (makeBet) {
+        makeBet.disabled = false;
   }
 }
 

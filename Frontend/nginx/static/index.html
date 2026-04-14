@@ -113,7 +113,10 @@
             Gebe hier die Zuganzahl an:
             <input name="move-count" type="number" min="2" max="100" value="2">
         </label>
-        <button id="make-bet" type="button">Zuganzahl abgeben</button>
+        <div class="tooltip">
+          <span class="tooltiptext" id="tooltip-text"></span>
+          <button id="make-bet" type="button">Zuganzahl abgeben</button>
+        </div>
 
         <div id="status">
           <span id="board-name">Individuelles Brett</span> ·

@@ -1,4 +1,4 @@
-import { boardConfigForm, createGame, startGame, joinGame, makeBet, playAgainButton, leaveAfterGameButton, joinGameIdInput, lobbyModeSelect, showCreateFlow, showJoinFlow, createFlow, joinFlow } from './dom.js';
+import { boardConfigForm, createGame, startGame, joinGame, makeBet, playAgainButton, leaveAfterGameButton, joinGameIdInput, lobbyModeSelect, showCreateFlow, showJoinFlow, createFlow, joinFlow, tooltipText } from './dom.js';
 import { state, Player, GameInfo } from './state.js';
 import { renderPlayerList, renderPlayerName, startRound, show, renderBidList, updateReplayChoiceButtons, rememberRoundStartRobots, isBoardInteractionLocked } from './ui.js';
 import { slide } from './robots.js';
@@ -389,10 +389,24 @@ if (joinGameIdInput) {
 if (makeBet) {
   makeBet.addEventListener('click', async (e) => {
     try {
+      const number_of_moves = Number(document.querySelector('input[name="move-count"]').value);
+      if (state.gameInfo.bids.find(bid => bid.player_id === state.playerInfo.player_id) &&
+          state.gameInfo.bids.some(bid => bid.number_of_moves <= number_of_moves) &&
+          tooltipText
+        ) {
+            tooltipText.textContent = 'Die Zuganzahl muss kleiner als deine Letzte sein.';
+            tooltipText.style.visibility = 'visible';
+            tooltipText.style.opacity = '1';
+            window.setTimeout(() => {
+              tooltipText.style.visibility = 'hidden';
+              tooltipText.style.opacity = '0';
+            }, 6000);
+            return;
+      }
       await sendBidRequest(
         state.gameInfo.game_id,
         state.playerInfo.player_id,
-        Number(document.querySelector('input[name="move-count"]').value)
+        number_of_moves
       );
       renderBidList(state.gameInfo);
     } catch (err) {
