@@ -203,7 +203,6 @@ export async function handleNotificationMessage(message) {
         const payload = message.payload;
         Object.assign(state.gameInfo, payload.game);
         state.game.robots = normalizeRobots(payload.robots);
-        rememberRoundStartRobots(payload.robots);
         state.game.chips = payload.targets;
 
         let msg = `Demonstration succesful. Chip awarded to ${payload.winner_name}.`;
