@@ -45,3 +45,4 @@ export const showCreateFlow = document.getElementById('show-create-flow');
 export const showJoinFlow = document.getElementById('show-join-flow');
 export const createFlow = document.getElementById('create-flow');
 export const joinFlow = document.getElementById('join-flow');
+export const tooltipText = document.getElementById('tooltip-text');
